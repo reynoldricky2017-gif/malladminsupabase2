@@ -65,7 +65,7 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
       if (!seen.has(key)) {
         seen.add(key);
         formatted.push({
-          id: String(u.id || `usr-${Date.now()}`),
+          id: String(u.id || key || 'usr-guest'),
           name: nameClean,
           phone: u.phone || anyU.phone_number || '+91 84950 93170',
           macAddress: u.macAddress || 'FE:88:99:A1:B2:C3',
@@ -82,7 +82,19 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
       }
     }
 
-    setLiveUsersList(formatted);
+    setLiveUsersList(prev => {
+      const userMap = new Map<string, ConnectedUser>();
+      prev.forEach(u => {
+        const key = (u.phone || u.id || u.name || '').replace(/\D/g, '').slice(-10) || u.name;
+        userMap.set(key, u);
+      });
+      formatted.forEach(u => {
+        const key = (u.phone || u.id || u.name || '').replace(/\D/g, '').slice(-10) || u.name;
+        const existing = userMap.get(key);
+        userMap.set(key, existing ? { ...existing, ...u } : u);
+      });
+      return Array.from(userMap.values());
+    });
   };
 
   useEffect(() => {

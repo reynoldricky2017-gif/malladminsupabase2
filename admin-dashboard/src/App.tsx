@@ -476,7 +476,19 @@ export default function App() {
       const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
-        setUsersList(data.users);
+        setUsersList(prev => {
+          const userMap = new Map<string, ConnectedUser>();
+          prev.forEach(u => {
+            const key = (u.phone || u.id || u.name || '').replace(/\D/g, '').slice(-10) || u.name;
+            userMap.set(key, u);
+          });
+          data.users.forEach((u: any) => {
+            const key = (u.phone || u.id || u.name || '').replace(/\D/g, '').slice(-10) || u.name;
+            const existing = userMap.get(key);
+            userMap.set(key, existing ? { ...existing, ...u } : u);
+          });
+          return Array.from(userMap.values());
+        });
       }
     } catch (e) {}
   };
