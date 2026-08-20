@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../lib/config';
 import { X, Store as StoreIcon, Phone, User, Clock, Star, MapPin, Users, ShoppingBag, CalendarCheck, TrendingUp, Edit3, CheckCircle2, Receipt, Wifi, RefreshCw, ArrowUpRight, CreditCard, Smartphone, Banknote, ChevronRight, PackageCheck } from 'lucide-react';
 import { Store, Product } from '../types';
 import { fetchProductsFromSupabase, fetchOrdersFromSupabase } from '../services/supabaseService';
@@ -131,7 +130,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({ store, onClo
       // 2. Fetch Orders from Backend REST endpoint (fallback)
       if (realTxns.length === 0) {
         try {
-          const res = await fetch(`${BACKEND_URL}/api/orders`);
+          const res = await fetch('http://localhost:5000/api/orders');
           const data = await res.json();
           if (data.success && Array.isArray(data.orders)) {
           const storeOrders = data.orders.filter((ord: any) => {
@@ -171,7 +170,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({ store, onClo
 
       // 2. Fetch Connected Users visiting this store from Backend
       try {
-        const uRes = await fetch(`${BACKEND_URL}/api/auth/users`);
+        const uRes = await fetch('http://localhost:5000/api/auth/users');
         const uData = await uRes.json();
         if (uData.success && Array.isArray(uData.users)) {
           uData.users.forEach((u: any, idx: number) => {

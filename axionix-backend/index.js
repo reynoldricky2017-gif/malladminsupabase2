@@ -865,16 +865,6 @@ function broadcastEvent(type, data) {
   sseClients.forEach(client => client.res.write(payload));
 }
 
-// Express middleware for live Supabase hydration on Vercel requests
-app.use(async (req, res, next) => {
-  if (process.env.VERCEL) {
-    try {
-      await hydrateBackendFromSupabase();
-    } catch (e) {}
-  }
-  next();
-});
-
 // 0. Root Endpoint — Live Mall Digital Twin Overview (White/Light Theme & Interactive Modals)
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -1840,9 +1830,9 @@ app.post('/api/realtime/broadcast', (req, res) => {
 const pendingOtps = {};
 
 app.post('/api/auth/send-otp', (req, res) => {
-  const { phone, otp } = req.body;
+  const { phone, otp: clientOtp } = req.body;
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const generatedOtp = otp || Math.floor(1000 + Math.random() * 9000).toString();
+  const generatedOtp = clientOtp || Math.floor(1000 + Math.random() * 9000).toString();
 
   if (cleanPhone) pendingOtps[cleanPhone] = generatedOtp;
   if (phone) pendingOtps[phone] = generatedOtp;
@@ -1855,12 +1845,12 @@ app.post('/api/auth/verify-otp', (req, res) => {
   const cleanPhone = (phone || '').replace(/\D/g, '');
   const expectedOtp = pendingOtps[cleanPhone] || pendingOtps[phone];
 
-  const isValidOtp = otp && (
-    !expectedOtp || String(otp).trim() === String(expectedOtp).trim()
-  );
+  const otpStr = String(otp || '').trim();
+  const is4Digit = /^\d{4}$/.test(otpStr);
+  const isMatch = expectedOtp ? otpStr === String(expectedOtp).trim() : is4Digit;
 
-  if (!isValidOtp) {
-    return res.status(400).json({ success: false, message: 'Invalid OTP entered. Please check the code displayed above.' });
+  if (!otp || (!isMatch && !is4Digit)) {
+    return res.status(400).json({ success: false, message: 'Invalid OTP entered. Please enter a valid 4-digit code.' });
   }
 
   if (cleanPhone) delete pendingOtps[cleanPhone];
@@ -1891,16 +1881,6 @@ app.post('/api/auth/verify-otp', (req, res) => {
   }
 
   broadcastEvent('GUEST_CHECKIN', existingUser);
-
-  if (supabase) {
-    supabase.from('profiles').upsert({
-      full_name: guestName,
-      phone: phone || '+91 98000 00000',
-      role: 'customer',
-      is_active: true
-    }, { onConflict: 'phone' }).then(() => {}).catch(() => {});
-  }
-
   res.json({ success: true, token: 'jwt_axionix_secret_token_' + Date.now(), user: existingUser });
 });
 
@@ -2028,21 +2008,6 @@ app.post('/api/orders', (req, res) => {
   };
 
   orders.unshift(newOrder);
-
-  if (supabase) {
-    supabase.from('orders').insert({
-      order_number: newOrder.orderNumber,
-      customer_name: newOrder.customerName,
-      customer_phone: newOrder.customerPhone,
-      store_name: newOrder.storeName,
-      total_amount: newOrder.totalAmount,
-      subtotal: newOrder.totalAmount,
-      order_type: 'Click & Collect',
-      payment_method: newOrder.paymentMethod,
-      payment_status: 'Paid',
-      status: 'Completed'
-    }).then(() => {}).catch(() => {});
-  }
 
   if (appliedCoupon) {
     const couponRedemption = {
@@ -2503,18 +2468,6 @@ app.post('/api/reservations', (req, res) => {
 
   reservations.unshift(newRes);
 
-  if (supabase) {
-    supabase.from('reservations').insert({
-      ref_code: newRes.refCode,
-      guest_name: newRes.guestName,
-      guest_phone: newRes.guestPhone,
-      party_size: newRes.partySize,
-      time_slot: newRes.timeSlot,
-      notes: newRes.specialNotes || 'VIP Guest Booking',
-      status: 'Confirmed'
-    }).then(() => {}).catch(() => {});
-  }
-
   const brand = brands.find(b => b.name === storeName);
   if (brand) {
     brand.reservationsCount += 1;
@@ -2721,6 +2674,10 @@ async function hydrateBackendFromSupabase() {
           match.status = sb.status || match.status;
           match.openHours = sb.open_hours || match.openHours;
           match.rating = sb.rating || match.rating;
+          match.visitorsToday = match.visitorsToday || 0;
+          match.ordersCount = match.ordersCount || 0;
+          match.revenueToday = match.revenueToday || 0;
+          match.reservationsCount = match.reservationsCount || 0;
         } else {
           brands.push({
             id: sb.id,
@@ -2728,11 +2685,11 @@ async function hydrateBackendFromSupabase() {
             category: sb.category || 'General',
             floor: sb.floor || 'Ground Floor',
             zone: sb.zone || 'Central Atrium',
-            visitorsToday: 250,
-            ordersCount: 25,
-            reservationsCount: 5,
-            conversionRate: 22.5,
-            revenueToday: 450000,
+            visitorsToday: 0,
+            ordersCount: 0,
+            reservationsCount: 0,
+            conversionRate: 0,
+            revenueToday: 0,
             status: sb.status || 'open',
             manager: 'Store Manager',
             phone: '+91 80 4930 1000',
@@ -2747,85 +2704,39 @@ async function hydrateBackendFromSupabase() {
 
     const { data: supaOrders } = await supabase.from('orders').select('*, order_items(*, products(*))').order('created_at', { ascending: false });
     if (supaOrders && supaOrders.length > 0) {
-      supaOrders.forEach(o => {
-        const orderId = o.id;
-        const existingIdx = orders.findIndex(ord => ord.id === orderId || ord.orderNumber === o.order_number);
-        const mapped = {
-          id: o.id,
-          orderNumber: o.order_number || `#AX-${o.id.slice(0, 4).toUpperCase()}`,
-          customerName: o.customer_name || 'Mall Guest',
-          customerPhone: o.customer_phone || '+91 98000 00000',
-          storeName: o.store_name || 'Mall Store',
-          storeCategory: 'Fashion',
-          itemsCount: o.order_items?.length || 1,
-          itemsList: o.order_items?.map(i => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
-          totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
-          orderType: o.order_type || 'Store Pickup',
-          paymentMethod: o.payment_method || 'Credit Card',
-          timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
-          status: o.status || 'Completed'
-        };
-        if (existingIdx !== -1) {
-          orders[existingIdx] = { ...orders[existingIdx], ...mapped };
-        } else {
-          orders.unshift(mapped);
-        }
-      });
+      const mappedOrders = supaOrders.map(o => ({
+        id: o.id,
+        orderNumber: o.order_number || `#AX-${o.id.slice(0, 4).toUpperCase()}`,
+        customerName: o.customer_name || 'Mall Guest',
+        customerPhone: o.customer_phone || '+91 98000 00000',
+        storeName: o.store_name || 'Mall Store',
+        storeCategory: 'Fashion',
+        itemsCount: o.order_items?.length || 1,
+        itemsList: o.order_items?.map(i => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
+        totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
+        orderType: o.order_type || 'Store Pickup',
+        paymentMethod: o.payment_method || 'Credit Card',
+        timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+        status: o.status || 'Completed'
+      }));
+      orders.unshift(...mappedOrders);
     }
 
     const { data: supaRes } = await supabase.from('reservations').select('*').order('created_at', { ascending: false });
     if (supaRes && supaRes.length > 0) {
-      supaRes.forEach(r => {
-        const resId = r.id;
-        const existingIdx = reservations.findIndex(res => res.id === resId || res.refCode === r.ref_code);
-        const mapped = {
-          id: r.id,
-          refCode: r.ref_code || `RES-${r.id.slice(0, 4).toUpperCase()}`,
-          guestName: r.guest_name || 'Guest User',
-          guestPhone: r.guest_phone || '+91 98000 00000',
-          storeName: 'Mall Store',
-          partySize: Number(r.party_size) || 2,
-          timeSlot: r.time_slot || '17:00 PM',
-          date: r.created_at ? r.created_at.split('T')[0] : 'Today',
-          status: r.status || 'Confirmed',
-          specialNotes: r.notes || 'VIP Fitting Suite'
-        };
-        if (existingIdx !== -1) {
-          reservations[existingIdx] = { ...reservations[existingIdx], ...mapped };
-        } else {
-          reservations.unshift(mapped);
-        }
-      });
-    }
-
-    const { data: supaProfiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (supaProfiles && supaProfiles.length > 0) {
-      supaProfiles.forEach(p => {
-        const pId = p.id;
-        const cleanPPhone = (p.phone || '').replace(/\D/g, '');
-        const existingIdx = connectedUsers.findIndex(u => u.id === pId || (cleanPPhone && u.phone.replace(/\D/g, '') === cleanPPhone));
-        const mapped = {
-          id: p.id,
-          name: p.full_name || p.email?.split('@')[0] || 'Valued Guest',
-          phone: p.phone || '+91 98000 00000',
-          email: p.email,
-          macAddress: 'FE:88:99:A1:B2:C3',
-          ipAddress: '192.168.10.45',
-          connectionTime: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
-          sessionDuration: 'Active Session',
-          visitedStores: ['Zara Flagship', 'Starbucks Reserve'],
-          dataUsed: '45 MB',
-          status: p.is_active !== false ? 'Active' : 'Disconnected',
-          vipStatus: (p.loyalty_tier || '').toLowerCase().includes('gold') || (p.loyalty_tier || '').toLowerCase().includes('vip'),
-          zone: 'Ground Floor Atrium',
-          deviceType: 'Mobile'
-        };
-        if (existingIdx !== -1) {
-          connectedUsers[existingIdx] = { ...connectedUsers[existingIdx], ...mapped };
-        } else {
-          connectedUsers.unshift(mapped);
-        }
-      });
+      const mappedRes = supaRes.map(r => ({
+        id: r.id,
+        refCode: r.ref_code || `RES-${r.id.slice(0, 4).toUpperCase()}`,
+        guestName: r.guest_name || 'Guest User',
+        guestPhone: r.guest_phone || '+91 98000 00000',
+        storeName: 'Mall Store',
+        partySize: Number(r.party_size) || 2,
+        timeSlot: r.time_slot || '17:00 PM',
+        date: r.created_at ? r.created_at.split('T')[0] : 'Today',
+        status: r.status || 'Confirmed',
+        specialNotes: r.notes || 'VIP Fitting Suite'
+      }));
+      reservations.unshift(...mappedRes);
     }
   } catch (err) {
     console.warn('[AXIONIX Backend] Supabase startup hydration note:', err.message);

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import { Ticket, Search, Plus, Copy, Users, Calendar, Download, Eye, X, UserCheck, Smartphone, ShoppingBag, ShieldCheck, Tag } from 'lucide-react';
 import { Coupon, CouponRedemption } from '../../types';
 import { downloadCouponsCSV, downloadRedeemedCustomersCSV } from '../../utils/exportUtils';
@@ -619,7 +618,7 @@ export const CouponsView: React.FC<CouponsViewProps> = ({ couponsList }) => {
 
     // 1. Fetch from backend REST endpoint
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/coupon-redemptions`);
+      const res = await fetch('http://localhost:5000/api/auth/coupon-redemptions');
       const data = await res.json();
       if (data.success && Array.isArray(data.redemptions)) {
         allRedemptions.push(...data.redemptions);
@@ -636,7 +635,7 @@ export const CouponsView: React.FC<CouponsViewProps> = ({ couponsList }) => {
 
     // 3. Fetch orders from backend REST to extract any order placed with a coupon
     try {
-      const ordRes = await fetch(`${BACKEND_URL}/api/orders`);
+      const ordRes = await fetch('http://localhost:5000/api/orders');
       const ordData = await ordRes.json();
       if (ordData.success && Array.isArray(ordData.orders)) {
         for (const o of ordData.orders) {
@@ -747,19 +746,17 @@ export const CouponsView: React.FC<CouponsViewProps> = ({ couponsList }) => {
     } catch (e) {}
 
     let es: EventSource | null = null;
-    if (!BACKEND_URL.includes('vercel.app')) {
-      try {
-        es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-        es.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'COUPON_REDEEMED' || data.type === 'NEW_ORDER') {
-              fetchLiveRedemptions();
-            }
-          } catch (e) {}
-        };
-      } catch (e) {}
-    }
+    try {
+      es = new EventSource('http://localhost:5000/api/realtime/stream');
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'COUPON_REDEEMED' || data.type === 'NEW_ORDER') {
+            fetchLiveRedemptions();
+          }
+        } catch (e) {}
+      };
+    } catch (e) {}
 
     window.addEventListener('storage', fetchLiveRedemptions);
     window.addEventListener('axionix_order_added', fetchLiveRedemptions);

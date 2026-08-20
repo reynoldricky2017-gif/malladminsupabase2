@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import { 
   Store as StoreIcon, 
   ShoppingBag, 
@@ -29,7 +28,8 @@ import {
   UserX,
   BellRing
 } from 'lucide-react';
-import { MOCK_STORES, MOCK_ORDERS, MOCK_RESERVATIONS } from '../../data/mockData';
+import { MOCK_STORES, MOCK_ORDERS, MOCK_RESERVATIONS, MOCK_USERS } from '../../data/mockData';
+import { BACKEND_URL } from '../../lib/config';
 import { 
   fetchStoresFromSupabase, 
   fetchProductsFromSupabase, 
@@ -228,33 +228,36 @@ export const TenantDashboardView: React.FC = () => {
   // Initial Load and Real-time SSE / BroadcastChannel / Polling Setup
   useEffect(() => {
     fetchLiveTenantData();
-    const interval = setInterval(fetchLiveTenantData, 4000);
+    const interval = setInterval(fetchLiveTenantData, 2500);
 
     // SSE Stream
     let es: EventSource | null = null;
-    if (!BACKEND_URL.includes('vercel.app')) {
-      try {
-        es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-        es.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (
-              data.type === 'NEW_ORDER' ||
-              data.type === 'ORDER_STATUS_UPDATE' ||
-              data.type === 'NEW_RESERVATION' ||
-              data.type === 'RESERVATION_CREATED' ||
-              data.type === 'RESERVATION_STATUS_UPDATE' ||
-              data.type === 'RESERVATION_NO_SHOW' ||
-              data.type === 'RESERVATION_SLOT_FREED' ||
-              data.type === 'RESERVATION_RESCHEDULED' ||
-              data.type === 'STOCK_UPDATED'
-            ) {
-              fetchLiveTenantData();
+    try {
+      es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (
+            data.type === 'NEW_ORDER' ||
+            data.type === 'ORDER_STATUS_UPDATE' ||
+            data.type === 'NEW_RESERVATION' ||
+            data.type === 'RESERVATION_CREATED' ||
+            data.type === 'RESERVATION_STATUS_UPDATE' ||
+            data.type === 'RESERVATION_NO_SHOW' ||
+            data.type === 'RESERVATION_SLOT_FREED' ||
+            data.type === 'RESERVATION_RESCHEDULED' ||
+            data.type === 'STOCK_UPDATED'
+          ) {
+            fetchLiveTenantData();
+            if (data.type === 'NEW_ORDER') {
+              showToast(`⚡ Live Order Alert! #${data.data?.orderNumber || data.data?.id} received for ${data.data?.storeName || 'Boutique'}`, 'info');
+            } else if (data.type === 'NEW_RESERVATION' || data.type === 'RESERVATION_CREATED') {
+              showToast(`🎉 Live Reservation! ${data.data?.guestName} booked ${data.data?.storeName} (${data.data?.timeSlot})`, 'info');
             }
-          } catch (e) {}
-        };
-      } catch (e) {}
-    }
+          }
+        } catch (e) {}
+      };
+    } catch (e) {}
 
     // BroadcastChannels
     let bcOrders: BroadcastChannel | null = null;
@@ -316,15 +319,15 @@ export const TenantDashboardView: React.FC = () => {
     } catch (e) {}
   };
 
-  const handleUpdateReservationStatus = async (resId: string, newStatus: string) => {
-    setAllLiveReservations(prev => prev.map(r => r.id === resId || r.refCode === resId ? { ...r, status: newStatus as any } : r));
-    showToast(`Reservation updated to '${newStatus}'`);
+  const handleUpdateReservationStatus = async (resId: string, status: string) => {
+    setAllLiveReservations(prev => prev.map(r => r.id === resId || r.refCode === resId ? { ...r, status: status as any } : r));
+    showToast(`Reservation updated to '${status}'`);
 
     try {
       await fetch(`${BACKEND_URL}/api/reservations/${resId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status })
       });
     } catch (e) {}
   };

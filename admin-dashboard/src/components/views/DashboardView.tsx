@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import { 
   Building2, 
   Wifi, 
@@ -90,7 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const fetchLiveAxionixMetrics = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/metrics`);
+      const res = await fetch('http://localhost:5000/api/admin/metrics');
       const data = await res.json();
       if (data.success) {
         setRawMetrics({

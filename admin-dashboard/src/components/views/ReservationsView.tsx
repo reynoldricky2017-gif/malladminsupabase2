@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import {
   CalendarCheck,
   Search,
@@ -30,6 +29,7 @@ import { MOCK_RESERVATIONS } from '../../data/mockData';
 import { downloadReservationsCSV } from '../../utils/exportUtils';
 import { Reservation } from '../../types';
 import { fetchReservationsFromSupabase } from '../../services/supabaseService';
+import { BACKEND_URL } from '../../lib/config';
 
 interface ReservationsViewProps {
   reservationsList?: Reservation[];
@@ -271,37 +271,34 @@ export const ReservationsView: React.FC<ReservationsViewProps> = ({ reservations
   };
 
   useEffect(() => {
-    if (Array.isArray(reservationsList) && reservationsList.length > 0) {
-      setLiveReservations(reservationsList);
-    }
-  }, [reservationsList]);
-
-  useEffect(() => {
     fetchBackendData();
-    const interval = setInterval(fetchBackendData, 4000);
+    const interval = setInterval(fetchBackendData, 2500);
 
     let eventSource: EventSource | null = null;
-    if (!BACKEND_URL.includes('vercel.app')) {
-      try {
-        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (
-              data.type === 'NEW_RESERVATION' ||
-              data.type === 'RESERVATION_CREATED' ||
-              data.type === 'RESERVATION_STATUS_UPDATE' ||
-              data.type === 'RESERVATION_NO_SHOW' ||
-              data.type === 'RESERVATION_SLOT_FREED' ||
-              data.type === 'WAITLIST_JOINED' ||
-              data.type === 'WAITLIST_PROMOTED' ||
-              data.type === 'RESERVATION_RESCHEDULED'
-            ) {
+    try {
+      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (
+            data.type === 'NEW_RESERVATION' ||
+            data.type === 'RESERVATION_CREATED' ||
+            data.type === 'RESERVATION_STATUS_UPDATE' ||
+            data.type === 'RESERVATION_NO_SHOW' ||
+            data.type === 'RESERVATION_SLOT_FREED' ||
+            data.type === 'WAITLIST_JOINED' ||
+            data.type === 'WAITLIST_PROMOTED' ||
+            data.type === 'RESERVATION_RESCHEDULED' ||
+            data.type === 'CAPACITY_UPDATED'
+          ) {
+            fetchBackendData();
+            if (data.type === 'WAITLIST_PROMOTED') {
+              showToast(`🎉 Waitlist guest auto-notified: ${data.data?.guestName || 'Shopper'} (+91 ${data.data?.guestPhone})`, 'info');
             }
-          } catch (e) {}
-        };
-      } catch (e) {}
-    }
+          }
+        } catch (e) {}
+      };
+    } catch (e) {}
 
     let bc: BroadcastChannel | null = null;
     try {

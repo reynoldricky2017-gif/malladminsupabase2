@@ -79,23 +79,18 @@ export async function authenticateOrGetCustomerProfile(name: string, phone: stri
       return { profile: upserted || newProfile };
     }
 
-    // Guaranteed upsert by phone if no Auth user ID
-    const phoneProfilePayload: any = {
-      full_name: name,
-      email: email || `${cleanPhone}@guest.mall`,
-      phone: cleanPhone,
-      role: 'customer',
-      loyalty_tier: 'Bronze',
-      is_active: true
-    };
-
-    const { data: phoneUpserted } = await supabase
+    // Lookup existing profile by phone if auth failed
+    const { data: phoneProfile } = await supabase
       .from('profiles')
-      .upsert(phoneProfilePayload, { onConflict: 'phone' })
-      .select()
+      .select('*')
+      .eq('phone', cleanPhone)
       .maybeSingle();
 
-    return { profile: phoneUpserted || phoneProfilePayload };
+    if (phoneProfile) {
+      return { profile: phoneProfile };
+    }
+
+    return { profile: null };
   } catch (err: any) {
     console.error('[Supabase Auth] Exception:', err);
     return { profile: null, error: err.message };
@@ -186,19 +181,15 @@ export async function createOrderInSupabase(orderData: {
       status: 'Completed'
     };
 
-    let { data: createdOrder, error: orderErr } = await supabase
+    const { data: createdOrder, error: orderErr } = await supabase
       .from('orders')
       .insert(orderRow)
       .select()
       .maybeSingle();
 
     if (orderErr) {
-      console.warn('[Supabase] createOrder initial insert note:', orderErr.message);
-      if (orderRow.user_id) {
-        delete orderRow.user_id;
-        const retry = await supabase.from('orders').insert(orderRow).select().maybeSingle();
-        createdOrder = retry.data;
-      }
+      console.error('[Supabase] createOrder error:', orderErr.message);
+      return { order: null, error: orderErr.message };
     }
 
     // Insert order_items if order created

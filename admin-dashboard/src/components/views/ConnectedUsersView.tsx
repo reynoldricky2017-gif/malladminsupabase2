@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import { Wifi, Search, Filter, Smartphone, Footprints, ShieldCheck, Download, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import { MOCK_USERS } from '../../data/mockData';
 import { ConnectedUser } from '../../types';
 import { downloadUsersCSV } from '../../utils/exportUtils';
 import { fetchConnectedUsersFromSupabase } from '../../services/supabaseService';
+import { BACKEND_URL } from '../../lib/config';
 
 interface ConnectedUsersViewProps {
   onSelectUserJourney: (user: ConnectedUser) => void;
@@ -86,24 +86,16 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
   };
 
   useEffect(() => {
-    if (Array.isArray(users) && users.length > 0) {
-      setLiveUsersList(users);
-    }
-  }, [users]);
-
-  useEffect(() => {
     fetchLiveConnectedUsers();
-    const interval = setInterval(fetchLiveConnectedUsers, 4000);
+    const interval = setInterval(fetchLiveConnectedUsers, 1500);
 
     let eventSource: EventSource | null = null;
-    if (!BACKEND_URL.includes('vercel.app')) {
-      try {
-        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-        eventSource.onmessage = () => {
-          fetchLiveConnectedUsers();
-        };
-      } catch (e) {}
-    }
+    try {
+      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+      eventSource.onmessage = () => {
+        fetchLiveConnectedUsers();
+      };
+    } catch (e) {}
 
     let bc: BroadcastChannel | null = null;
     try {

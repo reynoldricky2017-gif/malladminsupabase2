@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import { Award, Star, Flame, TrendingUp, Users, ShieldCheck, RefreshCw, Search } from 'lucide-react';
 import { LoyaltyAccount } from '../../types';
 
@@ -23,7 +22,7 @@ export const LoyaltyView: React.FC = () => {
   const fetchLoyaltyStats = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/loyalty/admin/stats`);
+      const res = await fetch('http://localhost:5000/api/loyalty/admin/stats');
       const data = await res.json();
       if (data.success && data.stats) {
         setStats(data.stats);

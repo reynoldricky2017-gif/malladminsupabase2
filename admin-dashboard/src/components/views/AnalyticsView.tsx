@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../lib/config';
 import { BarChart3, TrendingUp, Users, Clock, ShoppingBag, PieChart, Download, Activity } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { downloadCSV } from '../../utils/exportUtils';
@@ -106,7 +105,7 @@ export const AnalyticsView: React.FC = () => {
     } catch (e) {}
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/metrics`);
+      const res = await fetch('http://localhost:5000/api/admin/metrics');
       const data = await res.json();
       if (data.success) {
         if (data.activeUsers !== undefined) setLiveConnectedUsers(data.activeUsers);
@@ -117,7 +116,7 @@ export const AnalyticsView: React.FC = () => {
     } catch (e) {}
 
     try {
-      const resOrders = await fetch(`${BACKEND_URL}/api/orders`);
+      const resOrders = await fetch('http://localhost:5000/api/orders');
       const dataOrders = await resOrders.json();
       if (dataOrders.success && Array.isArray(dataOrders.orders)) {
         setLiveOrdersCount(dataOrders.orders.length);
@@ -137,14 +136,12 @@ export const AnalyticsView: React.FC = () => {
 
   useEffect(() => {
     fetchLiveAnalyticsData();
-    const interval = setInterval(fetchLiveAnalyticsData, 4000);
+    const interval = setInterval(fetchLiveAnalyticsData, 3000);
     let eventSource: EventSource | null = null;
-    if (!BACKEND_URL.includes('vercel.app')) {
-      try {
-        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-        eventSource.onmessage = () => { fetchLiveAnalyticsData(); };
-      } catch (e) {}
-    }
+    try {
+      eventSource = new EventSource('http://localhost:5000/api/realtime/stream');
+      eventSource.onmessage = () => { fetchLiveAnalyticsData(); };
+    } catch (e) {}
     return () => { clearInterval(interval); eventSource?.close(); };
   }, []);
 
