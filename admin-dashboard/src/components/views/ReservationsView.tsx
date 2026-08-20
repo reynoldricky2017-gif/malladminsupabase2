@@ -267,6 +267,15 @@ export const ReservationsView: React.FC<ReservationsViewProps> = ({ reservations
       }
     }
 
+    // Deterministic sort: Newest date and time slot first, then refCode
+    formatted.sort((a, b) => {
+      const dateCmp = (b.date || '').localeCompare(a.date || '');
+      if (dateCmp !== 0) return dateCmp;
+      const slotCmp = (b.timeSlot || '').localeCompare(a.timeSlot || '');
+      if (slotCmp !== 0) return slotCmp;
+      return (b.refCode || '').localeCompare(a.refCode || '');
+    });
+
     setLiveReservations(formatted);
   };
 

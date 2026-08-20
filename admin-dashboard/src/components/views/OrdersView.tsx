@@ -5,6 +5,7 @@ import { Order } from '../../types';
 import { downloadOrdersCSV, downloadOrderReceiptTXT } from '../../utils/exportUtils';
 import { fetchOrdersFromSupabase, recordAuditLog } from '../../services/supabaseService';
 import { BACKEND_URL } from '../../lib/config';
+import { mergeAndSortOrders } from '../../utils/dataMergeUtils';
 
 interface OrdersViewProps {
   ordersList?: Order[];
@@ -14,116 +15,47 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ ordersList = MOCK_ORDERS
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [liveOrdersList, setLiveOrdersList] = useState<Order[]>(ordersList);
+  const [liveOrdersList, setLiveOrdersList] = useState<Order[]>(() => mergeAndSortOrders(MOCK_ORDERS, ordersList));
 
   const fetchLiveOrders = async () => {
-    let rawOrders: any[] = [];
+    let incoming: Order[] = [];
 
     // 1. Fetch from Supabase FIRST so database orders take precedence
     try {
       const supaRes = await fetchOrdersFromSupabase();
       if (supaRes.data && supaRes.isLive) {
-        rawOrders.push(...supaRes.data);
+        incoming.push(...supaRes.data);
       }
     } catch (e) {}
 
-    // 2. Read from LocalStorage
-    try {
-      const local = JSON.parse(localStorage.getItem('axionix_orders_list') || '[]');
-      if (Array.isArray(local)) {
-        rawOrders.push(...local);
-      }
-    } catch (e) {}
-
-    // 3. Fetch from Backend REST endpoint
+    // 2. Fetch from Backend REST endpoint
     try {
       const res = await fetch(`${BACKEND_URL}/api/orders`);
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
-        rawOrders.push(...data.orders);
+        incoming.push(...data.orders);
       }
     } catch (e) {}
 
-    // 4. Always include initial mock orders as baseline
-    rawOrders.push(...ordersList);
-
-    // Deduplicate and parse order objects
-    const orderMap = new Map<string, Order>();
-
-    rawOrders.forEach((o, idx) => {
-      const orderIdKey = String(o.id || o.orderNumber || o.order_number || idx);
-      const cleanDigits = orderIdKey.replace(/\D/g, '');
-      const orderNum = o.orderNumber || o.order_number || `#AX-${cleanDigits.slice(-4) || String(1000 + idx)}`;
-
-      const dedupeKey = orderNum.trim();
-      if (orderMap.has(dedupeKey)) return;
-
-      const custName = String(o.customerName || o.user_name || 'Valued Guest').trim();
-      const custPhone = o.customerPhone || o.user_phone || '+91 84950 93170';
-      const storeName = o.storeName || o.store_name || 'Nike Flagship';
-
-      let storeCategory = o.storeCategory || 'Fashion';
-      const snLower = storeName.toLowerCase();
-      if (snLower.includes('starbucks') || snLower.includes('dintai') || snLower.includes('kfc') || snLower.includes('cirque') || snLower.includes('haagen') || snLower.includes('food')) {
-        storeCategory = 'Food';
-      } else if (snLower.includes('rolex') || snLower.includes('tag') || snLower.includes('leather') || snLower.includes('cartier') || snLower.includes('tiffany') || snLower.includes('sunglass') || snLower.includes('ray-ban')) {
-        storeCategory = 'Accessories';
-      } else if (snLower.includes('timezone') || snLower.includes('arcade')) {
-        storeCategory = 'Entertainment';
-      } else if (snLower.includes('spa') || snLower.includes('salon')) {
-        storeCategory = 'Services';
+    // 3. Read from LocalStorage
+    try {
+      const local = JSON.parse(localStorage.getItem('axionix_orders_list') || '[]');
+      if (Array.isArray(local) && local.length > 0) {
+        incoming.push(...local);
       }
+    } catch (e) {}
 
-      const rawItems = Array.isArray(o.items) && o.items.length > 0 ? o.items.map((i: any) => ({
-        name: i.name || i.item_name || 'Designer Item',
-        quantity: Number(i.quantity || i.qty || 1),
-        price: Number(i.price || 2495)
-      })) : [
-        { name: o.item_name || 'Designer Item', quantity: Number(o.quantity || o.itemsCount || 1), price: Number(o.totalAmount || 2495) }
-      ];
-
-      const itemsList = Array.isArray(o.itemsList) ? o.itemsList : 
-                        rawItems.map((i: any) => `${i.name} (x${i.quantity})`);
-
-      const totalAmount = Number(o.totalAmount || o.total_amount || rawItems.reduce((acc: number, i: any) => acc + (i.price * i.quantity), 0));
-      const itemsCount = Number(o.itemsCount || o.quantity || rawItems.reduce((acc: number, i: any) => acc + i.quantity, 0));
-
-      orderMap.set(dedupeKey, {
-        id: String(o.id || `ord-${Date.now()}`),
-        orderNumber: orderNum,
-        customerName: custName,
-        customerPhone: custPhone,
-        storeName: storeName,
-        storeCategory: storeCategory,
-        orderType: o.orderType || o.order_type || 'Click & Collect',
-        paymentMethod: o.paymentMethod || o.payment_method || 'UPI / GPay',
-        itemsCount: itemsCount,
-        totalAmount: totalAmount,
-        timestamp: o.timestamp || 'Just now',
-        status: o.status === 'Completed' || o.status === 'completed' ? 'Completed' : 'Processing',
-        itemsList: itemsList,
-        items: rawItems
-      });
-    });
-
-    const parseOrderTimeRank = (ord: Order): number => {
-      const ts = String(ord.timestamp || '').toLowerCase();
-      if (ts.includes('just now')) return 2000000000000;
-      if (ts.includes('pm') || ts.includes('am')) return 1900000000000;
-      if (ts.includes('mins ago')) {
-        const mins = parseInt(ts) || 0;
-        return 1800000000000 - (mins * 60 * 1000);
-      }
-      if (ts.includes('hour ago') || ts.includes('hours ago')) {
-        const hrs = parseInt(ts) || 1;
-        return 1700000000000 - (hrs * 3600 * 1000);
-      }
-      return 1000000000000;
-    };
-
-    const sortedList = Array.from(orderMap.values()).sort((a, b) => parseOrderTimeRank(b) - parseOrderTimeRank(a));
-    setLiveOrdersList(sortedList);
+    if (incoming.length > 0) {
+      setLiveOrdersList(prev => mergeAndSortOrders(prev, incoming));
+    }
   };
+
+  // Sync with prop updates from App.tsx without flickering or resetting
+  useEffect(() => {
+    if (Array.isArray(ordersList) && ordersList.length > 0) {
+      setLiveOrdersList(prev => mergeAndSortOrders(prev, ordersList));
+    }
+  }, [ordersList]);
 
   const handleUpdateOrderStatus = (orderId: string, nextStatus: string) => {
     setLiveOrdersList(prev => prev.map(o => {

@@ -5,6 +5,7 @@ import { ConnectedUser } from '../../types';
 import { downloadUsersCSV } from '../../utils/exportUtils';
 import { fetchConnectedUsersFromSupabase } from '../../services/supabaseService';
 import { BACKEND_URL } from '../../lib/config';
+import { mergeAndSortUsers } from '../../utils/dataMergeUtils';
 
 interface ConnectedUsersViewProps {
   onSelectUserJourney: (user: ConnectedUser) => void;
@@ -15,75 +16,47 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
   const [search, setSearch] = useState('');
   const [deviceFilter, setDeviceFilter] = useState('All');
   const [vipOnly, setVipOnly] = useState(false);
-  const [liveUsersList, setLiveUsersList] = useState<ConnectedUser[]>(users);
+  const [liveUsersList, setLiveUsersList] = useState<ConnectedUser[]>(() => mergeAndSortUsers(MOCK_USERS, users));
 
   const fetchLiveConnectedUsers = async () => {
-    let mergedUsers: ConnectedUser[] = [];
+    let incoming: ConnectedUser[] = [];
 
     // 1. Fetch from Supabase
     try {
       const supaRes = await fetchConnectedUsersFromSupabase();
       if (supaRes.data && supaRes.isLive) {
-        mergedUsers.push(...supaRes.data);
+        incoming.push(...supaRes.data);
       }
     } catch (e) {}
 
-    // 2. LocalStorage Fallback
-    try {
-      const local = JSON.parse(localStorage.getItem('axionix_users_list') || '[]');
-      if (Array.isArray(local) && local.length > 0) {
-        mergedUsers.push(...local);
-      }
-    } catch (e) {}
-
-    // 3. Fetch from Shared Backend Port 5000
+    // 2. Fetch from Shared Backend
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
-        mergedUsers.push(...data.users);
+        incoming.push(...data.users);
       }
     } catch (e) {}
 
-    // 3. Fallback to passed prop or mock data if empty
-    if (mergedUsers.length === 0) {
-      mergedUsers = [...users];
-    } else {
-      mergedUsers = [...mergedUsers, ...users];
-    }
-
-    // Deduplicate by phone or id, preserving active status and latest visited stores
-    const seen = new Set();
-    const formatted: ConnectedUser[] = [];
-
-    for (const u of mergedUsers) {
-      const anyU = u as any;
-      const phoneClean = (u.phone || anyU.phone_number || '').replace(/\D/g, '').slice(-10);
-      const nameClean = (u.name || 'Valued Guest').trim();
-      const key = phoneClean || nameClean;
-
-      if (!seen.has(key)) {
-        seen.add(key);
-        formatted.push({
-          id: String(u.id || `usr-${Date.now()}`),
-          name: nameClean,
-          phone: u.phone || anyU.phone_number || '+91 84950 93170',
-          macAddress: u.macAddress || 'FE:88:99:A1:B2:C3',
-          ipAddress: u.ipAddress || '192.168.10.142',
-          connectionTime: u.connectionTime || 'Just now',
-          sessionDuration: u.sessionDuration || '1m',
-          visitedStores: Array.isArray(u.visitedStores) ? u.visitedStores : [],
-          dataUsed: u.dataUsed || '15 MB',
-          status: String(u.status).toLowerCase() === 'active' ? 'Active' : 'Disconnected',
-          vipStatus: true,
-          zone: u.zone || anyU.floor_detected || 'Ground Floor (Lobby & Luxury)',
-          deviceType: u.deviceType || 'iOS'
-        });
+    // 3. LocalStorage Fallback
+    try {
+      const local = JSON.parse(localStorage.getItem('axionix_users_list') || '[]');
+      if (Array.isArray(local) && local.length > 0) {
+        incoming.push(...local);
       }
-    }
+    } catch (e) {}
 
-    setLiveUsersList(formatted);
+    if (incoming.length > 0) {
+      setLiveUsersList(prev => mergeAndSortUsers(prev, incoming));
+    }
   };
+
+  // Sync with prop updates from App.tsx without resetting order
+  useEffect(() => {
+    if (Array.isArray(users) && users.length > 0) {
+      setLiveUsersList(prev => mergeAndSortUsers(prev, users));
+    }
+  }, [users]);
 
   useEffect(() => {
     fetchLiveConnectedUsers();

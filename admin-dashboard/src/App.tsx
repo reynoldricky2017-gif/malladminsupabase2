@@ -33,6 +33,7 @@ import { ExportReportModal } from './components/ExportReportModal';
 
 import { ViewType, Store, ConnectedUser, UserRole, Order, Reservation, Coupon, AdminUser, SystemAlert } from './types';
 import { MOCK_STORES, MOCK_ALERTS, MOCK_USERS, MOCK_ORDERS, MOCK_RESERVATIONS, MOCK_COUPONS } from './data/mockData';
+import { mergeAndSortUsers, mergeAndSortOrders } from './utils/dataMergeUtils';
 import { 
   fetchStoresFromSupabase, 
   fetchConnectedUsersFromSupabase, 
@@ -306,10 +307,11 @@ export default function App() {
         status: 'Active',
         vipStatus: true,
         zone: guestFloor,
-        deviceType: 'iOS'
+        deviceType: 'iOS',
+        createdAt: new Date().toISOString()
       };
 
-      setUsersList(prev => [newUser, ...prev.filter(u => !matchUser(u, guestPhone, guestName))]);
+      setUsersList(prev => mergeAndSortUsers(prev, [newUser]));
       setLiveToast({
         title: 'New Guest Connected Wi-Fi',
         message: `${guestName} checked in at ${guestFloor}`
@@ -388,10 +390,11 @@ export default function App() {
         timestamp: orderPayload.timestamp || 'Just now',
         status: 'Completed',
         itemsList,
-        items: rawItems
+        items: rawItems,
+        createdAt: orderPayload.createdAt || orderPayload.created_at || new Date().toISOString()
       };
 
-      setOrdersList(prev => [newOrder, ...prev.filter(o => o.orderNumber !== newOrder.orderNumber)]);
+      setOrdersList(prev => mergeAndSortOrders(prev, [newOrder]));
 
       // Update visited stores for customer
       setUsersList(prev => prev.map((u, idx) => {
@@ -476,7 +479,7 @@ export default function App() {
       const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
-        setUsersList(data.users);
+        setUsersList(prev => mergeAndSortUsers(prev, data.users));
       }
     } catch (e) {}
   };
@@ -492,12 +495,12 @@ export default function App() {
 
         const usersRes = await fetchConnectedUsersFromSupabase();
         if (usersRes.data && usersRes.isLive) {
-          setUsersList(usersRes.data);
+          setUsersList(prev => mergeAndSortUsers(prev, usersRes.data));
         }
 
         const ordersRes = await fetchOrdersFromSupabase();
         if (ordersRes.data && ordersRes.isLive) {
-          setOrdersList(ordersRes.data);
+          setOrdersList(prev => mergeAndSortOrders(prev, ordersRes.data));
         }
 
         const resRes = await fetchReservationsFromSupabase();

@@ -1864,11 +1864,13 @@ app.post('/api/auth/verify-otp', (req, res) => {
   if (cleanPhone) delete pendingOtps[cleanPhone];
   if (phone) delete pendingOtps[phone];
 
-  const guestName = name || 'Valued Shopper';
-  let existingUser = connectedUsers.find(u => u.phone === phone || u.phone.replace(/\D/g, '') === cleanPhone);
+  const guestName = name && name.trim() ? name.trim() : 'Valued Shopper';
+  const userStableId = 'usr-' + (cleanPhone ? cleanPhone.slice(-6) : '101');
+  let existingUser = connectedUsers.find(u => (u.phone && u.phone.replace(/\D/g, '').slice(-10) === cleanPhone.slice(-10)) || u.id === userStableId);
+  
   if (!existingUser) {
     existingUser = {
-      id: 'usr-' + Date.now(),
+      id: userStableId,
       name: guestName,
       phone: phone || '+91 98000 00000',
       macAddress: 'FE:88:99:A1:B2:C3',
@@ -1878,14 +1880,19 @@ app.post('/api/auth/verify-otp', (req, res) => {
       visitedStores: [],
       dataUsed: '15 MB',
       status: 'Active',
-      vipStatus: false,
+      vipStatus: true,
       zone: 'Ground Floor Atrium',
-      deviceType: 'iOS'
+      deviceType: 'iOS',
+      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString()
     };
     connectedUsers.unshift(existingUser);
   } else {
     existingUser.status = 'Active';
-    if (name) existingUser.name = name;
+    if (guestName && guestName !== 'Valued Shopper') existingUser.name = guestName;
+    existingUser.connectionTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    existingUser.createdAt = new Date().toISOString();
+    existingUser.created_at = new Date().toISOString();
   }
 
   broadcastEvent('GUEST_CHECKIN', existingUser);
@@ -1996,36 +2003,50 @@ app.get('/api/orders', (req, res) => {
 });
 
 app.post('/api/orders', (req, res) => {
-  const { storeName, customerName, customerPhone, items, totalAmount, paymentMethod, appliedCoupon } = req.body;
+  const { id, orderNumber, storeName, customerName, customerPhone, items, totalAmount, paymentMethod, appliedCoupon, createdAt, timestamp } = req.body;
+  const targetId = id || ('ORD-' + (orders.length + 1091));
+  const targetOrderNum = orderNumber || ('#AX-' + (orders.length + 1091));
+  const createdIso = createdAt || new Date().toISOString();
+  const timeDisplay = timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Deduplicate if already exists
+  const existingIdx = orders.findIndex(o => o.orderNumber === targetOrderNum || o.id === targetId);
   const newOrder = {
-    id: 'ORD-' + (orders.length + 1091),
-    orderNumber: '#AX-' + (orders.length + 1091),
-    customerName: customerName && customerName.trim() ? customerName : 'Reynold Ricky',
+    id: targetId,
+    orderNumber: targetOrderNum,
+    customerName: customerName && customerName.trim() ? customerName.trim() : 'Valued Guest',
     customerPhone: customerPhone || '+91 98987 65432',
     storeName: storeName || 'Grand Mall Concierge',
     storeCategory: 'Fashion',
     itemsCount: items ? items.reduce((a, b) => a + (b.quantity || 1), 0) : 1,
-    itemsList: items ? items.map(i => `${i.name} (x${i.quantity || 1})`) : ['Concierge Item'],
+    itemsList: items ? items.map(i => `${i.name || i.item?.name || 'Item'} (x${i.quantity || 1})`) : ['Concierge Item'],
     items: items || [],
     totalAmount: Number(totalAmount) || 1200,
     appliedCoupon: appliedCoupon || null,
     orderType: 'Store Pickup',
-    paymentMethod: paymentMethod || 'AXIONIX Verified POS',
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    paymentMethod: paymentMethod || 'UPI / GPay',
+    createdAt: createdIso,
+    created_at: createdIso,
+    timestamp: timeDisplay,
     status: 'Completed'
   };
 
-  orders.unshift(newOrder);
+  if (existingIdx >= 0) {
+    orders[existingIdx] = newOrder;
+  } else {
+    orders.unshift(newOrder);
+  }
 
   // Persist to Supabase database for permanent serverless storage
-  supabase.from('orders').insert({
+  supabase.from('orders').upsert({
     order_number: newOrder.orderNumber,
     customer_name: newOrder.customerName,
     customer_phone: newOrder.customerPhone,
     store_name: newOrder.storeName,
     total_amount: newOrder.totalAmount,
     status: newOrder.status,
-    payment_method: newOrder.paymentMethod
+    payment_method: newOrder.paymentMethod,
+    created_at: createdIso
   }).then(({ error }) => {
     if (error) console.warn('[Supabase] orders insert note:', error.message);
   }).catch(() => {});

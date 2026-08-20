@@ -182,6 +182,8 @@ export interface ConnectedUser {
   loyaltyTier?: string;
   zone: string;
   deviceType: 'iOS' | 'Android' | 'Windows' | 'macOS' | string;
+  createdAt?: string;
+  created_at?: string;
 }
 
 export interface ActivityLog {
@@ -240,6 +242,7 @@ export interface Order {
   payment_status?: string;
   timestamp: string;
   created_at?: string;
+  createdAt?: string;
   updated_at?: string;
   status: 'Completed' | 'Processing' | 'Pending' | 'Cancelled' | string;
 }

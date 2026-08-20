@@ -2493,6 +2493,7 @@ export default function App() {
         quantity: c.quantity
       })),
       paymentMethod: paymentMethodLabel,
+      createdAt: new Date().toISOString(),
       timestamp: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
     };
 
