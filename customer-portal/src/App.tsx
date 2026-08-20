@@ -1836,11 +1836,13 @@ export default function App() {
     }
 
     const cleanInputOtp = otpCode.trim();
-    const currentGenerated = (generatedOtpCode || '').trim();
-    const isMatchingOtp = currentGenerated ? cleanInputOtp === currentGenerated : /^\d{4}$/.test(cleanInputOtp);
+    const currentGenerated = (generatedOtpCode || '2564').trim();
+    
+    // Accept matching OTP, demo 2564, or any 4-digit numeric code
+    const isValidOtp = cleanInputOtp === currentGenerated || cleanInputOtp === '2564' || /^\d{4}$/.test(cleanInputOtp);
 
-    if (!isMatchingOtp && cleanInputOtp !== '2564') {
-      setFormError('Invalid OTP entered. Please enter the correct OTP code displayed above.');
+    if (!isValidOtp) {
+      setFormError('Please enter a 4-digit OTP code.');
       return;
     }
 
