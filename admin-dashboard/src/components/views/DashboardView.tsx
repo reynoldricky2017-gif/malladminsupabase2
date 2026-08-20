@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { BACKEND_URL } from '../../lib/config';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -89,7 +90,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const fetchLiveAxionixMetrics = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/metrics');
+      const res = await fetch(`${BACKEND_URL}/api/admin/metrics`);
       const data = await res.json();
       if (data.success) {
         setRawMetrics({
