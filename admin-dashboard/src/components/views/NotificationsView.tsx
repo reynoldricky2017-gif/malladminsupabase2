@@ -1,127 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, Info, CheckCircle2, ShieldAlert, Filter, Wifi, RefreshCw, Sparkles, MapPin } from 'lucide-react';
+import { Bell, AlertTriangle, Info, CheckCircle2, ShieldAlert, Filter, RefreshCw, Zap, PlusCircle } from 'lucide-react';
+import { MOCK_ALERTS } from '../../data/mockData';
 import { SystemAlert } from '../../types';
 import { fetchNotificationsFromSupabase } from '../../services/supabaseService';
 import { BACKEND_URL } from '../../lib/config';
 
-export const DEFAULT_NOTIFICATIONS: SystemAlert[] = [
-  {
-    id: 'alt-1',
-    title: 'High Footfall Spike Detected',
-    description: 'Central Atrium occupancy crossed 85% capacity threshold (1,480 visitors). Security alerted.',
-    timestamp: '10 mins ago',
-    severity: 'warning',
-    category: 'Footfall',
-    read: false,
-    location: 'Central Atrium Ground Floor'
-  },
-  {
-    id: 'alt-2',
-    title: 'WiFi Gateway AP-South-02 Packet Loss',
-    description: 'Access Point AP-South-02 in South Wing reported temporary packet loss. Failover to AP-South-03 active.',
-    timestamp: '25 mins ago',
-    severity: 'critical',
-    category: 'Network',
-    read: false,
-    location: 'South Wing 1st Floor'
-  },
-  {
-    id: 'alt-3',
-    title: 'Low Coupon Stock Alert',
-    description: 'STARBUCKSBOGO coupon claims reached 85% limit. Consider extending campaign quota.',
-    timestamp: '1 hour ago',
-    severity: 'info',
-    category: 'Campaign',
-    read: true,
-    location: 'Starbucks Reserve'
-  },
-  {
-    id: 'alt-4',
-    title: 'Store Inventory POS Sync Notice',
-    description: 'Zara inventory POS catalog synchronization completed with 24 item stock updates.',
-    timestamp: '2 hours ago',
-    severity: 'info',
-    category: 'Inventory',
-    read: true,
-    location: 'Zara 1st Floor'
-  },
-  {
-    id: 'alt-5',
-    title: 'VIP Lounge Entry Authorized',
-    description: 'Guest Vikram Malhotra (Platinum Member) accessed VIP Lounge Central with digital pass.',
-    timestamp: '3 hours ago',
-    severity: 'info',
-    category: 'Security',
-    read: false,
-    location: 'VIP Concierge Suite'
-  },
-  {
-    id: 'alt-6',
-    title: 'POS Terminal Delay Flagged',
-    description: 'H&M 2nd Floor checkout terminal #4 latency exceeded 1,200ms. Diagnostics run automatically.',
-    timestamp: '4 hours ago',
-    severity: 'warning',
-    category: 'Network',
-    read: true,
-    location: 'H&M 2nd Floor'
-  },
-  {
-    id: 'alt-7',
-    title: 'Atrium Air Quality & HVAC Nominal',
-    description: 'HVAC Zone 3 temperature stabilized at 22.4°C with standard airflow rate.',
-    timestamp: '5 hours ago',
-    severity: 'info',
-    category: 'Footfall',
-    read: true,
-    location: 'Main Atrium Level 2'
-  }
-];
+interface NotificationsViewProps {
+  alerts?: SystemAlert[];
+}
 
-export const NotificationsView: React.FC = () => {
-  const [alerts, setAlerts] = useState<SystemAlert[]>(DEFAULT_NOTIFICATIONS);
+export const NotificationsView: React.FC<NotificationsViewProps> = ({ alerts: propAlerts }) => {
+  const [alerts, setAlerts] = useState<SystemAlert[]>(() => {
+    if (propAlerts && propAlerts.length > 0) return propAlerts;
+    return MOCK_ALERTS;
+  });
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadNotifications = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchNotificationsFromSupabase();
+      if (res.data && res.data.length > 0) {
+        // Merge Supabase alerts with MOCK_ALERTS to guarantee rich system telemetry is never empty
+        const alertMap = new Map<string, SystemAlert>();
+        MOCK_ALERTS.forEach(a => alertMap.set(a.id, a));
+        res.data.forEach(a => alertMap.set(a.id, a));
+        setAlerts(Array.from(alertMap.values()));
+      } else {
+        setAlerts(MOCK_ALERTS);
+      }
+    } catch (e) {
+      setAlerts(MOCK_ALERTS);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    fetchNotificationsFromSupabase().then(res => {
-      if (isMounted && res.data && Array.isArray(res.data) && res.data.length > 0) {
-        // Merge Supabase alerts with defaults
-        const map = new Map<string, SystemAlert>();
-        DEFAULT_NOTIFICATIONS.forEach(a => map.set(a.id, a));
-        res.data.forEach(a => map.set(a.id, a));
-        setAlerts(Array.from(map.values()));
-      }
-    }).catch(() => {});
-
-    // SSE Realtime connection for live alerts
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      eventSource.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.type === 'NEW_ALERT' || data.type === 'RESTOCK_REQUEST') {
-            const incoming = data.data || data;
-            setAlerts(prev => [{
-              id: incoming.id || `alt-${Date.now()}`,
-              title: incoming.title || 'Live System Notification',
-              description: incoming.description || incoming.message || 'Realtime event detected',
-              timestamp: 'Just now',
-              severity: incoming.severity || 'info',
-              category: incoming.category || 'Security',
-              read: false,
-              location: incoming.location || 'Mall Central Atrium'
-            }, ...prev]);
-          }
-        } catch (err) {}
-      };
-    } catch (e) {}
-
-    return () => { 
-      isMounted = false; 
-      eventSource?.close();
-    };
-  }, []);
+    if (propAlerts && propAlerts.length > 0) {
+      const alertMap = new Map<string, SystemAlert>();
+      MOCK_ALERTS.forEach(a => alertMap.set(a.id, a));
+      propAlerts.forEach(a => alertMap.set(a.id, a));
+      setAlerts(Array.from(alertMap.values()));
+    } else {
+      loadNotifications();
+    }
+  }, [propAlerts]);
 
   const filteredAlerts = alerts.filter(a => filter === 'all' || a.severity === filter);
 
@@ -129,7 +54,25 @@ export const NotificationsView: React.FC = () => {
     setAlerts(alerts.map(a => ({ ...a, read: true })));
   };
 
-  const unreadCount = alerts.filter(a => !a.read).length;
+  const handleCreateSampleAlert = () => {
+    const categories: Array<'Footfall' | 'Network' | 'Inventory' | 'Campaign' | 'Security'> = ['Footfall', 'Network', 'Inventory', 'Campaign', 'Security'];
+    const severities: Array<'critical' | 'warning' | 'info'> = ['critical', 'warning', 'info'];
+    const randomCat = categories[Math.floor(Math.random() * categories.length)];
+    const randomSev = severities[Math.floor(Math.random() * severities.length)];
+
+    const newAlert: SystemAlert = {
+      id: `live-alt-${Date.now()}`,
+      title: `${randomCat} Dynamic Telemetry Update`,
+      description: `Automated IoT sensor event reported in Atrium Zone: nominal flow rate active.`,
+      timestamp: 'Just now',
+      severity: randomSev,
+      category: randomCat,
+      read: false,
+      location: 'Central Atrium Ground Floor'
+    };
+
+    setAlerts(prev => [newAlert, ...prev]);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -137,59 +80,64 @@ export const NotificationsView: React.FC = () => {
       {/* Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-              <Bell className="w-5 h-5 text-blue-600" />
-              AXIONIX System Notifications & Security Feed
-            </h1>
-            {unreadCount > 0 && (
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs font-bold rounded-full">
-                {unreadCount} Unread
-              </span>
-            )}
-          </div>
+          <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-blue-600" />
+            AXIONIX System Notifications & Security Feed
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
             Automated alerts for high atrium footfall spikes, access point packet loss, and tenant inventory feeds.
           </p>
         </div>
 
-        <button
-          onClick={markAllRead}
-          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-        >
-          Mark All As Read
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCreateSampleAlert}
+            className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            Simulate Alert
+          </button>
+          <button
+            onClick={markAllRead}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+          >
+            Mark All As Read
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
-        {(['all', 'critical', 'warning', 'info'] as const).map(f => {
-          const count = f === 'all' ? alerts.length : alerts.filter(a => a.severity === f).length;
-          return (
+      <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center gap-2">
+          {(['all', 'critical', 'warning', 'info'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
                 filter === f
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              <span>{f === 'all' ? 'All Alerts' : f}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                filter === f ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {count}
-              </span>
+              {f === 'all' ? `All Alerts (${alerts.length})` : `${f} (${alerts.filter(a => a.severity === f).length})`}
             </button>
-          );
-        })}
+          ))}
+        </div>
+
+        <button
+          onClick={loadNotifications}
+          disabled={isLoading}
+          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-xl transition-colors"
+          title="Refresh Feed"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+        </button>
       </div>
 
       {/* Alerts Feed */}
-      <div className="space-y-3">
-        {filteredAlerts.length > 0 ? (
-          filteredAlerts.map(alert => (
+      {filteredAlerts.length > 0 ? (
+        <div className="space-y-3">
+          {filteredAlerts.map(alert => (
             <div
               key={alert.id}
               className={`p-5 rounded-2xl border transition-all flex items-start justify-between gap-4 ${
@@ -207,7 +155,7 @@ export const NotificationsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
                       alert.severity === 'critical' ? 'bg-rose-100 text-rose-800' :
                       alert.severity === 'warning' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
@@ -215,16 +163,12 @@ export const NotificationsView: React.FC = () => {
                       {alert.severity} • {alert.category}
                     </span>
                     <span className="text-xs text-slate-400 font-medium">{alert.timestamp}</span>
-                    {!alert.read && (
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" title="Unread" />
-                    )}
                   </div>
 
                   <h3 className="text-sm font-extrabold text-slate-900 mt-1">{alert.title}</h3>
                   <p className="text-xs text-slate-600 mt-0.5">{alert.description}</p>
                   {alert.location && (
-                    <div className="text-[11px] font-semibold text-slate-500 mt-2 flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="text-[11px] font-semibold text-slate-500 mt-2">
                       Location: {alert.location}
                     </div>
                   )}
@@ -233,20 +177,30 @@ export const NotificationsView: React.FC = () => {
 
               <button
                 onClick={() => setAlerts(alerts.filter(a => a.id !== alert.id))}
-                className="text-xs font-semibold text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-xs font-semibold text-slate-400 hover:text-slate-600"
               >
                 Dismiss
               </button>
             </div>
-          ))
-        ) : (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-            <h3 className="text-sm font-bold text-slate-800">No {filter !== 'all' ? filter : ''} alerts found</h3>
-            <p className="text-xs text-slate-500 mt-1">All telemetry sensors and systems are running normally.</p>
+          ))}
+        </div>
+      ) : (
+        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)] space-y-3">
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
-        )}
-      </div>
+          <h3 className="text-base font-extrabold text-slate-900">No {filter !== 'all' ? filter : ''} Alerts Right Now</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            All IoT sensor gateways, captive portals, and mall tenant POS nodes are operating with 100% nominal telemetry.
+          </p>
+          <button
+            onClick={() => setAlerts(MOCK_ALERTS)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs"
+          >
+            Restore Default Telemetry Alerts
+          </button>
+        </div>
+      )}
 
     </div>
   );

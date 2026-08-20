@@ -711,7 +711,7 @@ export default function App() {
 
           {/* 9. NOTIFICATION CENTER */}
           {currentView === 'notifications' && (
-            <NotificationsView />
+            <NotificationsView alerts={alertsList} />
           )}
 
           {/* 10. SUPER ADMIN */}
