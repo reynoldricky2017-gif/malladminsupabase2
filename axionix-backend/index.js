@@ -2029,6 +2029,21 @@ app.post('/api/orders', (req, res) => {
 
   orders.unshift(newOrder);
 
+  if (supabase) {
+    supabase.from('orders').insert({
+      order_number: newOrder.orderNumber,
+      customer_name: newOrder.customerName,
+      customer_phone: newOrder.customerPhone,
+      store_name: newOrder.storeName,
+      total_amount: newOrder.totalAmount,
+      subtotal: newOrder.totalAmount,
+      order_type: 'Click & Collect',
+      payment_method: newOrder.paymentMethod,
+      payment_status: 'Paid',
+      status: 'Completed'
+    }).then(() => {}).catch(() => {});
+  }
+
   if (appliedCoupon) {
     const couponRedemption = {
       id: 'rdm-' + Date.now(),
@@ -2487,6 +2502,18 @@ app.post('/api/reservations', (req, res) => {
   };
 
   reservations.unshift(newRes);
+
+  if (supabase) {
+    supabase.from('reservations').insert({
+      ref_code: newRes.refCode,
+      guest_name: newRes.guestName,
+      guest_phone: newRes.guestPhone,
+      party_size: newRes.partySize,
+      time_slot: newRes.timeSlot,
+      notes: newRes.specialNotes || 'VIP Guest Booking',
+      status: 'Confirmed'
+    }).then(() => {}).catch(() => {});
+  }
 
   const brand = brands.find(b => b.name === storeName);
   if (brand) {

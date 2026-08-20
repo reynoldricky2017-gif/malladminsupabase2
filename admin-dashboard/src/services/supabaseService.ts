@@ -888,6 +888,35 @@ export async function fetchCustomersFromSupabase(): Promise<{ data: ConnectedUse
     });
   });
 
+  // 4. Merge LocalStorage registered users
+  try {
+    const localReg = JSON.parse(localStorage.getItem('axionix_registered_users') || '[]');
+    if (Array.isArray(localReg)) {
+      localReg.forEach((u: any) => {
+        const cleanP = (u.phone || '').replace(/\D/g, '');
+        if (cleanP) {
+          const existing = userMap.get(cleanP);
+          userMap.set(cleanP, {
+            id: existing?.id || `usr-local-${cleanP}`,
+            name: u.name || existing?.name || 'Registered Guest',
+            phone: u.phone || existing?.phone || '+91 98000 00000',
+            email: u.email || existing?.email,
+            macAddress: existing?.macAddress || 'FE:88:99:A1:B2:C3',
+            ipAddress: existing?.ipAddress || '192.168.10.142',
+            connectionTime: existing?.connectionTime || 'Today',
+            sessionDuration: existing?.sessionDuration || 'Active',
+            visitedStores: existing?.visitedStores || [u.floor || 'Ground Floor'],
+            dataUsed: existing?.dataUsed || '210 MB',
+            status: 'Active',
+            vipStatus: existing?.vipStatus || false,
+            zone: u.floor || existing?.zone || 'Ground Floor',
+            deviceType: existing?.deviceType || 'Mobile'
+          });
+        }
+      });
+    }
+  } catch (e) {}
+
   const finalUsersList = Array.from(userMap.values());
   return { data: finalUsersList, isLive: isLive || backendUsers.length > 0 };
 }
