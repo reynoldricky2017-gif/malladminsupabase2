@@ -37,60 +37,42 @@ export async function authenticateOrGetCustomerProfile(name: string, phone: stri
       userId = anonData?.user?.id || null;
     }
 
-    // 3. Query existing profile from public.profiles
-    if (userId) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profile) {
-        return {
-          profile: {
-            id: profile.id,
-            full_name: profile.full_name || name,
-            email: profile.email || email,
-            phone: profile.phone || cleanPhone,
-            role: profile.role || 'customer',
-            loyalty_tier: profile.loyalty_tier || 'Bronze',
-            is_active: profile.is_active !== false
-          }
-        };
-      }
-
-      // Upsert profile into public.profiles
-      const newProfile = {
-        id: userId,
-        full_name: name,
-        email: email || undefined,
-        phone: cleanPhone,
-        role: 'customer',
-        loyalty_tier: 'Bronze',
-        is_active: true
-      };
-
-      const { data: upserted } = await supabase
-        .from('profiles')
-        .upsert(newProfile)
-        .select()
-        .maybeSingle();
-
-      return { profile: upserted || newProfile };
-    }
-
-    // Lookup existing profile by phone if auth failed
+    // 3. Query existing profile from public.profiles by phone
     const { data: phoneProfile } = await supabase
       .from('profiles')
       .select('*')
       .eq('phone', cleanPhone)
       .maybeSingle();
 
-    if (phoneProfile) {
-      return { profile: phoneProfile };
-    }
+    const targetId = userId || phoneProfile?.id || ('usr-' + (cleanPhone ? cleanPhone.slice(-6) : Date.now()));
 
-    return { profile: null };
+    const profileData = {
+      id: targetId,
+      full_name: name || phoneProfile?.full_name || 'Valued Guest',
+      email: email || phoneProfile?.email || undefined,
+      phone: cleanPhone,
+      role: 'customer',
+      loyalty_tier: phoneProfile?.loyalty_tier || 'Bronze',
+      is_active: true
+    };
+
+    const { data: upserted } = await supabase
+      .from('profiles')
+      .upsert(profileData)
+      .select()
+      .maybeSingle();
+
+    return {
+      profile: {
+        id: (upserted || profileData).id,
+        full_name: (upserted || profileData).full_name,
+        email: (upserted || profileData).email,
+        phone: (upserted || profileData).phone,
+        role: (upserted || profileData).role,
+        loyalty_tier: (upserted || profileData).loyalty_tier,
+        is_active: true
+      }
+    };
   } catch (err: any) {
     console.error('[Supabase Auth] Exception:', err);
     return { profile: null, error: err.message };
