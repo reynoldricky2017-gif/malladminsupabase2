@@ -526,12 +526,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentUser) return;
-    if (BACKEND_URL.includes("vercel.app")) return;
     fetchBackendConnectedUsers();
-    const interval = setInterval(fetchBackendConnectedUsers, 6000);
+    const interval = setInterval(fetchBackendConnectedUsers, 3000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, []);
 
   // Real-time Multi-Channel Listener (SSE + BroadcastChannel + LocalStorage Event Bus)
   useEffect(() => {

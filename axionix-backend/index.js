@@ -1898,6 +1898,17 @@ app.post('/api/auth/verify-otp', (req, res) => {
   }
 
   broadcastEvent('GUEST_CHECKIN', existingUser);
+
+  // Persist to Supabase database for permanent serverless storage
+  supabase.from('profiles').upsert({
+    full_name: guestName,
+    phone: phone,
+    role: 'customer',
+    is_active: true
+  }, { onConflict: 'phone' }).then(({ error }) => {
+    if (error) console.warn('[Supabase] profiles upsert note:', error.message);
+  }).catch(() => {});
+
   res.json({ success: true, token: 'jwt_axionix_secret_token_' + Date.now(), user: existingUser });
 });
 
@@ -2791,6 +2802,33 @@ async function hydrateBackendFromSupabase() {
         resMap.set(item.refCode, item);
       });
       reservations = Array.from(resMap.values());
+    }
+
+    const { data: supaProfiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (supaProfiles && supaProfiles.length > 0) {
+      const userMap = new Map();
+      connectedUsers.forEach(u => userMap.set((u.phone || '').replace(/\D/g, '').slice(-10), u));
+      supaProfiles.forEach(p => {
+        const cleanP = (p.phone || '').replace(/\D/g, '').slice(-10);
+        if (!cleanP) return;
+        const uItem = {
+          id: p.id || ('usr-' + cleanP),
+          name: p.full_name || p.name || 'Valued Guest',
+          phone: p.phone || '+91 98000 00000',
+          macAddress: 'FE:88:99:A1:B2:C3',
+          ipAddress: '192.168.10.125',
+          connectionTime: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:30 AM',
+          sessionDuration: 'Active Session',
+          visitedStores: ['Nike Flagship', 'Starbucks Reserve'],
+          dataUsed: '45 MB',
+          status: 'Active',
+          vipStatus: p.role === 'vip' || false,
+          zone: 'Ground Floor Atrium',
+          deviceType: 'iOS'
+        };
+        userMap.set(cleanP, uItem);
+      });
+      connectedUsers = Array.from(userMap.values());
     }
   } catch (err) {
     console.warn('[AXIONIX Backend] Supabase startup hydration note:', err.message);

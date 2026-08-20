@@ -90,7 +90,23 @@ export async function authenticateOrGetCustomerProfile(name: string, phone: stri
       return { profile: phoneProfile };
     }
 
-    return { profile: null };
+    // Insert new customer profile into public.profiles
+    const newCust = {
+      full_name: name,
+      email: email || undefined,
+      phone: cleanPhone,
+      role: 'customer',
+      loyalty_tier: 'Bronze',
+      is_active: true
+    };
+
+    const { data: inserted } = await supabase
+      .from('profiles')
+      .insert(newCust)
+      .select()
+      .maybeSingle();
+
+    return { profile: inserted || newCust };
   } catch (err: any) {
     console.error('[Supabase Auth] Exception:', err);
     return { profile: null, error: err.message };

@@ -65,7 +65,7 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
       if (!seen.has(key)) {
         seen.add(key);
         formatted.push({
-          id: String(u.id || `usr-${Date.now()}`),
+          id: String(u.id || (phoneClean ? `usr-${phoneClean}` : `usr-${nameClean.replace(/\s+/g, '')}`)),
           name: nameClean,
           phone: u.phone || anyU.phone_number || '+91 84950 93170',
           macAddress: u.macAddress || 'FE:88:99:A1:B2:C3',
