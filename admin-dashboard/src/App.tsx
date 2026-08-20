@@ -473,10 +473,9 @@ export default function App() {
 
   const fetchBackendConnectedUsers = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.users) && data.users.length > 0) {
-        setUsersList(data.users);
+      const res = await fetchConnectedUsersFromSupabase();
+      if (res.data && res.data.length > 0) {
+        setUsersList(res.data);
       }
     } catch (e) {}
   };

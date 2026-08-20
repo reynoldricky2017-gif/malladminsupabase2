@@ -1891,6 +1891,16 @@ app.post('/api/auth/verify-otp', (req, res) => {
   }
 
   broadcastEvent('GUEST_CHECKIN', existingUser);
+
+  if (supabase) {
+    supabase.from('profiles').upsert({
+      full_name: guestName,
+      phone: phone || '+91 98000 00000',
+      role: 'customer',
+      is_active: true
+    }, { onConflict: 'phone' }).then(() => {}).catch(() => {});
+  }
+
   res.json({ success: true, token: 'jwt_axionix_secret_token_' + Date.now(), user: existingUser });
 });
 
@@ -2757,6 +2767,36 @@ async function hydrateBackendFromSupabase() {
           reservations[existingIdx] = { ...reservations[existingIdx], ...mapped };
         } else {
           reservations.unshift(mapped);
+        }
+      });
+    }
+
+    const { data: supaProfiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (supaProfiles && supaProfiles.length > 0) {
+      supaProfiles.forEach(p => {
+        const pId = p.id;
+        const cleanPPhone = (p.phone || '').replace(/\D/g, '');
+        const existingIdx = connectedUsers.findIndex(u => u.id === pId || (cleanPPhone && u.phone.replace(/\D/g, '') === cleanPPhone));
+        const mapped = {
+          id: p.id,
+          name: p.full_name || p.email?.split('@')[0] || 'Valued Guest',
+          phone: p.phone || '+91 98000 00000',
+          email: p.email,
+          macAddress: 'FE:88:99:A1:B2:C3',
+          ipAddress: '192.168.10.45',
+          connectionTime: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          sessionDuration: 'Active Session',
+          visitedStores: ['Zara Flagship', 'Starbucks Reserve'],
+          dataUsed: '45 MB',
+          status: p.is_active !== false ? 'Active' : 'Disconnected',
+          vipStatus: (p.loyalty_tier || '').toLowerCase().includes('gold') || (p.loyalty_tier || '').toLowerCase().includes('vip'),
+          zone: 'Ground Floor Atrium',
+          deviceType: 'Mobile'
+        };
+        if (existingIdx !== -1) {
+          connectedUsers[existingIdx] = { ...connectedUsers[existingIdx], ...mapped };
+        } else {
+          connectedUsers.unshift(mapped);
         }
       });
     }
