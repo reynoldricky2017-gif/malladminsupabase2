@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BACKEND_URL } from '../../lib/config';
 import { Wifi, Search, Filter, Smartphone, Footprints, ShieldCheck, Download, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import { MOCK_USERS } from '../../data/mockData';
 import { ConnectedUser } from '../../types';
@@ -37,7 +38,7 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
 
     // 3. Fetch from Shared Backend Port 5000
     try {
-      const res = await fetch('http://localhost:5000/api/auth/connected-users');
+      const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
         mergedUsers.push(...data.users);
@@ -90,7 +91,7 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
 
     let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource('http://localhost:5000/api/realtime/stream');
+      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
       eventSource.onmessage = () => {
         fetchLiveConnectedUsers();
       };

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BACKEND_URL } from '../../lib/config';
 import { 
   Sparkles, 
   TrendingUp, 
@@ -19,7 +20,7 @@ export const AiInsightsView: React.FC = () => {
   const handleExecuteAction = async (rec: AIRecommendation) => {
     try {
       if (rec.actionText.includes('Campaign')) {
-        await fetch('http://localhost:5000/api/campaigns', {
+        await fetch(`${BACKEND_URL}/api/campaigns`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

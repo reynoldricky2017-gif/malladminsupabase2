@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BACKEND_URL } from './lib/config';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 
@@ -472,7 +473,7 @@ export default function App() {
 
   const fetchBackendConnectedUsers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/connected-users');
+      const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
         setUsersList(data.users);
@@ -528,7 +529,7 @@ export default function App() {
     let bc: BroadcastChannel | null = null;
 
     try {
-      eventSource = new EventSource('http://localhost:5000/api/realtime/stream');
+      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
