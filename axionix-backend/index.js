@@ -1923,6 +1923,8 @@ app.post('/api/auth/visit-store', (req, res) => {
 
   broadcastEvent('STORE_VISIT', { user, storeName, visitorsToday: brand ? brand.visitorsToday : 0 });
   res.json({ success: true, visitorsToday: brand ? brand.visitorsToday : 0 });
+});
+
 // Express middleware for live Supabase hydration on Vercel requests
 app.use(async (req, res, next) => {
   if (process.env.VERCEL) {
@@ -2715,7 +2717,7 @@ async function hydrateBackendFromSupabase() {
           storeName: o.store_name || 'Mall Store',
           storeCategory: 'Fashion',
           itemsCount: o.order_items?.length || 1,
-          itemsList: o.order_items?.map((i: any) => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
+          itemsList: o.order_items?.map(i => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
           totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
           orderType: o.order_type || 'Store Pickup',
           paymentMethod: o.payment_method || 'Credit Card',
@@ -2754,7 +2756,7 @@ async function hydrateBackendFromSupabase() {
         }
       });
     }
-  } catch (err: any) {
+  } catch (err) {
     console.warn('[AXIONIX Backend] Supabase startup hydration note:', err.message);
   }
 }
