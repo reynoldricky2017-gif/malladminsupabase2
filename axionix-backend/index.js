@@ -15,6 +15,16 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(cors());
 app.use(express.json());
 
+// Express middleware for live Supabase hydration on Vercel requests
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    try {
+      await hydrateBackendFromSupabase();
+    } catch (e) {}
+  }
+  next();
+});
+
 // In-Memory Database Store initialized with all 33 Customer Portal Flagship Stores
 let brands = [
   // FOOD & DINING (6 STORES)
@@ -2670,10 +2680,6 @@ async function hydrateBackendFromSupabase() {
           match.status = sb.status || match.status;
           match.openHours = sb.open_hours || match.openHours;
           match.rating = sb.rating || match.rating;
-          match.visitorsToday = match.visitorsToday || 0;
-          match.ordersCount = match.ordersCount || 0;
-          match.revenueToday = match.revenueToday || 0;
-          match.reservationsCount = match.reservationsCount || 0;
         } else {
           brands.push({
             id: sb.id,
@@ -2681,11 +2687,11 @@ async function hydrateBackendFromSupabase() {
             category: sb.category || 'General',
             floor: sb.floor || 'Ground Floor',
             zone: sb.zone || 'Central Atrium',
-            visitorsToday: 0,
-            ordersCount: 0,
-            reservationsCount: 0,
-            conversionRate: 0,
-            revenueToday: 0,
+            visitorsToday: 250,
+            ordersCount: 25,
+            reservationsCount: 5,
+            conversionRate: 22.5,
+            revenueToday: 450000,
             status: sb.status || 'open',
             manager: 'Store Manager',
             phone: '+91 80 4930 1000',
@@ -2700,41 +2706,57 @@ async function hydrateBackendFromSupabase() {
 
     const { data: supaOrders } = await supabase.from('orders').select('*, order_items(*, products(*))').order('created_at', { ascending: false });
     if (supaOrders && supaOrders.length > 0) {
-      const mappedOrders = supaOrders.map(o => ({
-        id: o.id,
-        orderNumber: o.order_number || `#AX-${o.id.slice(0, 4).toUpperCase()}`,
-        customerName: o.customer_name || 'Mall Guest',
-        customerPhone: o.customer_phone || '+91 98000 00000',
-        storeName: o.store_name || 'Mall Store',
-        storeCategory: 'Fashion',
-        itemsCount: o.order_items?.length || 1,
-        itemsList: o.order_items?.map(i => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
-        totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
-        orderType: o.order_type || 'Store Pickup',
-        paymentMethod: o.payment_method || 'Credit Card',
-        timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
-        status: o.status || 'Completed'
-      }));
-      orders.unshift(...mappedOrders);
+      supaOrders.forEach(o => {
+        const orderId = o.id;
+        const existingIdx = orders.findIndex(ord => ord.id === orderId || ord.orderNumber === o.order_number);
+        const mapped = {
+          id: o.id,
+          orderNumber: o.order_number || `#AX-${o.id.slice(0, 4).toUpperCase()}`,
+          customerName: o.customer_name || 'Mall Guest',
+          customerPhone: o.customer_phone || '+91 98000 00000',
+          storeName: o.store_name || 'Mall Store',
+          storeCategory: 'Fashion',
+          itemsCount: o.order_items?.length || 1,
+          itemsList: o.order_items?.map((i: any) => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
+          totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
+          orderType: o.order_type || 'Store Pickup',
+          paymentMethod: o.payment_method || 'Credit Card',
+          timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          status: o.status || 'Completed'
+        };
+        if (existingIdx !== -1) {
+          orders[existingIdx] = { ...orders[existingIdx], ...mapped };
+        } else {
+          orders.unshift(mapped);
+        }
+      });
     }
 
     const { data: supaRes } = await supabase.from('reservations').select('*').order('created_at', { ascending: false });
     if (supaRes && supaRes.length > 0) {
-      const mappedRes = supaRes.map(r => ({
-        id: r.id,
-        refCode: r.ref_code || `RES-${r.id.slice(0, 4).toUpperCase()}`,
-        guestName: r.guest_name || 'Guest User',
-        guestPhone: r.guest_phone || '+91 98000 00000',
-        storeName: 'Mall Store',
-        partySize: Number(r.party_size) || 2,
-        timeSlot: r.time_slot || '17:00 PM',
-        date: r.created_at ? r.created_at.split('T')[0] : 'Today',
-        status: r.status || 'Confirmed',
-        specialNotes: r.notes || 'VIP Fitting Suite'
-      }));
-      reservations.unshift(...mappedRes);
+      supaRes.forEach(r => {
+        const resId = r.id;
+        const existingIdx = reservations.findIndex(res => res.id === resId || res.refCode === r.ref_code);
+        const mapped = {
+          id: r.id,
+          refCode: r.ref_code || `RES-${r.id.slice(0, 4).toUpperCase()}`,
+          guestName: r.guest_name || 'Guest User',
+          guestPhone: r.guest_phone || '+91 98000 00000',
+          storeName: 'Mall Store',
+          partySize: Number(r.party_size) || 2,
+          timeSlot: r.time_slot || '17:00 PM',
+          date: r.created_at ? r.created_at.split('T')[0] : 'Today',
+          status: r.status || 'Confirmed',
+          specialNotes: r.notes || 'VIP Fitting Suite'
+        };
+        if (existingIdx !== -1) {
+          reservations[existingIdx] = { ...reservations[existingIdx], ...mapped };
+        } else {
+          reservations.unshift(mapped);
+        }
+      });
     }
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[AXIONIX Backend] Supabase startup hydration note:', err.message);
   }
 }
