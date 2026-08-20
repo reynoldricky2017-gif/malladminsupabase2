@@ -86,16 +86,24 @@ export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelect
   };
 
   useEffect(() => {
+    if (Array.isArray(users) && users.length > 0) {
+      setLiveUsersList(users);
+    }
+  }, [users]);
+
+  useEffect(() => {
     fetchLiveConnectedUsers();
-    const interval = setInterval(fetchLiveConnectedUsers, 1500);
+    const interval = setInterval(fetchLiveConnectedUsers, 4000);
 
     let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      eventSource.onmessage = () => {
-        fetchLiveConnectedUsers();
-      };
-    } catch (e) {}
+    if (!BACKEND_URL.includes('vercel.app')) {
+      try {
+        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+        eventSource.onmessage = () => {
+          fetchLiveConnectedUsers();
+        };
+      } catch (e) {}
+    }
 
     let bc: BroadcastChannel | null = null;
     try {

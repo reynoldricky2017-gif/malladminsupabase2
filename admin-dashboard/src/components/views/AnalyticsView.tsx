@@ -137,12 +137,14 @@ export const AnalyticsView: React.FC = () => {
 
   useEffect(() => {
     fetchLiveAnalyticsData();
-    const interval = setInterval(fetchLiveAnalyticsData, 3000);
+    const interval = setInterval(fetchLiveAnalyticsData, 4000);
     let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      eventSource.onmessage = () => { fetchLiveAnalyticsData(); };
-    } catch (e) {}
+    if (!BACKEND_URL.includes('vercel.app')) {
+      try {
+        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+        eventSource.onmessage = () => { fetchLiveAnalyticsData(); };
+      } catch (e) {}
+    }
     return () => { clearInterval(interval); eventSource?.close(); };
   }, []);
 

@@ -142,16 +142,24 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ ordersList = MOCK_ORDERS
   };
 
   useEffect(() => {
+    if (Array.isArray(ordersList) && ordersList.length > 0) {
+      setLiveOrdersList(ordersList);
+    }
+  }, [ordersList]);
+
+  useEffect(() => {
     fetchLiveOrders();
-    const interval = setInterval(fetchLiveOrders, 1500);
+    const interval = setInterval(fetchLiveOrders, 4000);
 
     let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      eventSource.onmessage = () => {
-        fetchLiveOrders();
-      };
-    } catch (e) {}
+    if (!BACKEND_URL.includes('vercel.app')) {
+      try {
+        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+        eventSource.onmessage = () => {
+          fetchLiveOrders();
+        };
+      } catch (e) {}
+    }
 
     let bc: BroadcastChannel | null = null;
     try {

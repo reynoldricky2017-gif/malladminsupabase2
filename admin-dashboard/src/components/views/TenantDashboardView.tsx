@@ -228,36 +228,33 @@ export const TenantDashboardView: React.FC = () => {
   // Initial Load and Real-time SSE / BroadcastChannel / Polling Setup
   useEffect(() => {
     fetchLiveTenantData();
-    const interval = setInterval(fetchLiveTenantData, 2500);
+    const interval = setInterval(fetchLiveTenantData, 4000);
 
     // SSE Stream
     let es: EventSource | null = null;
-    try {
-      es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (
-            data.type === 'NEW_ORDER' ||
-            data.type === 'ORDER_STATUS_UPDATE' ||
-            data.type === 'NEW_RESERVATION' ||
-            data.type === 'RESERVATION_CREATED' ||
-            data.type === 'RESERVATION_STATUS_UPDATE' ||
-            data.type === 'RESERVATION_NO_SHOW' ||
-            data.type === 'RESERVATION_SLOT_FREED' ||
-            data.type === 'RESERVATION_RESCHEDULED' ||
-            data.type === 'STOCK_UPDATED'
-          ) {
-            fetchLiveTenantData();
-            if (data.type === 'NEW_ORDER') {
-              showToast(`⚡ Live Order Alert! #${data.data?.orderNumber || data.data?.id} received for ${data.data?.storeName || 'Boutique'}`, 'info');
-            } else if (data.type === 'NEW_RESERVATION' || data.type === 'RESERVATION_CREATED') {
-              showToast(`🎉 Live Reservation! ${data.data?.guestName} booked ${data.data?.storeName} (${data.data?.timeSlot})`, 'info');
+    if (!BACKEND_URL.includes('vercel.app')) {
+      try {
+        es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+        es.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (
+              data.type === 'NEW_ORDER' ||
+              data.type === 'ORDER_STATUS_UPDATE' ||
+              data.type === 'NEW_RESERVATION' ||
+              data.type === 'RESERVATION_CREATED' ||
+              data.type === 'RESERVATION_STATUS_UPDATE' ||
+              data.type === 'RESERVATION_NO_SHOW' ||
+              data.type === 'RESERVATION_SLOT_FREED' ||
+              data.type === 'RESERVATION_RESCHEDULED' ||
+              data.type === 'STOCK_UPDATED'
+            ) {
+              fetchLiveTenantData();
             }
-          }
-        } catch (e) {}
-      };
-    } catch (e) {}
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
 
     // BroadcastChannels
     let bcOrders: BroadcastChannel | null = null;

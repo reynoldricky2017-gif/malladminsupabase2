@@ -747,17 +747,19 @@ export const CouponsView: React.FC<CouponsViewProps> = ({ couponsList }) => {
     } catch (e) {}
 
     let es: EventSource | null = null;
-    try {
-      es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'COUPON_REDEEMED' || data.type === 'NEW_ORDER') {
-            fetchLiveRedemptions();
-          }
-        } catch (e) {}
-      };
-    } catch (e) {}
+    if (!BACKEND_URL.includes('vercel.app')) {
+      try {
+        es = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+        es.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'COUPON_REDEEMED' || data.type === 'NEW_ORDER') {
+              fetchLiveRedemptions();
+            }
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
 
     window.addEventListener('storage', fetchLiveRedemptions);
     window.addEventListener('axionix_order_added', fetchLiveRedemptions);

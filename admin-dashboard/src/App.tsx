@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from './lib/config';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 
@@ -518,25 +519,45 @@ export default function App() {
 
   useEffect(() => {
     fetchBackendConnectedUsers();
-    const interval = setInterval(fetchBackendConnectedUsers, 1500);
+    const interval = setInterval(fetchBackendConnectedUsers, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Real-time Multi-Channel Listener (SSE + BroadcastChannel + LocalStorage Event Bus)
+  // Real-time Multi-Channel Listener (Supabase Realtime + SSE + BroadcastChannel + LocalStorage Event Bus)
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let bc: BroadcastChannel | null = null;
+    let supaChannel: any = null;
 
-    try {
-      eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          handleRealtimeEvent(data.type, data.payload);
-          fetchBackendConnectedUsers();
-        } catch (e) {}
-      };
-    } catch (e) {}
+    if (!BACKEND_URL.includes('vercel.app')) {
+      try {
+        eventSource = new EventSource(`${BACKEND_URL}/api/realtime/stream`);
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleRealtimeEvent(data.type, data.payload);
+            fetchBackendConnectedUsers();
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
+
+    if (isSupabaseConfigured) {
+      try {
+        supaChannel = supabase
+          .channel('public_realtime_dashboard_channel')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            fetchOrdersFromSupabase().then(res => { if (res.data) setOrdersList(res.data); });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
+            fetchReservationsFromSupabase().then(res => { if (res.data) setReservationsList(res.data); });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+            fetchConnectedUsersFromSupabase().then(res => { if (res.data) setUsersList(res.data); });
+          })
+          .subscribe();
+      } catch (e) {}
+    }
 
     try {
       bc = new BroadcastChannel('axionix_events');
@@ -567,6 +588,7 @@ export default function App() {
     return () => {
       eventSource?.close();
       bc?.close();
+      if (supaChannel) supabase.removeChannel(supaChannel);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
