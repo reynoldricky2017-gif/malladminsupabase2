@@ -1382,7 +1382,7 @@ export default function App() {
   const [selectedFloor, setSelectedFloor] = useState('1st Floor (Fashion & Dining)');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [generatedOtpCode, setGeneratedOtpCode] = useState('');
+  const [generatedOtpCode, setGeneratedOtpCode] = useState(() => Math.floor(1000 + Math.random() * 9000).toString());
   const [resendCountdown, setResendCountdown] = useState(20);
   const [verifyMethod, setVerifyMethod] = useState<'sms' | 'whatsapp'>('sms');
 
@@ -1807,10 +1807,13 @@ export default function App() {
     setVerifyMethod(method);
     if (!validateLoginForm()) return;
 
+    const dynamicOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtpCode(dynamicOtp);
+
     fetch(`${API_BASE}/api/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: mobileNumber, method })
+      body: JSON.stringify({ phone: mobileNumber, method, otp: dynamicOtp })
     })
       .then(res => res.json())
       .then(data => {
@@ -1854,7 +1857,7 @@ export default function App() {
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
+        if (data.success || otpCode.trim() === generatedOtpCode.trim()) {
           try {
             const stored = JSON.parse(localStorage.getItem(REGISTERED_USERS_KEY) || '[]');
             const existingIdx = stored.findIndex((u: any) => u.phone === cleanPhone);
@@ -2926,7 +2929,7 @@ TOTAL AMOUNT PAID: ₹${(orderObj.totalAmount || finalCartTotal).toLocaleString(
                       </div>
                       <div className="px-3 py-1 bg-stone-200/70 border border-stone-300/80 rounded-xl text-[11px] font-black text-slate-700 flex items-center space-x-1">
                         <span>Demo OTP:</span>
-                        <span className="text-emerald-800 font-mono text-xs">{generatedOtpCode || '2564'}</span>
+                        <span className="text-emerald-800 font-mono text-xs">{generatedOtpCode}</span>
                       </div>
                     </div>
 

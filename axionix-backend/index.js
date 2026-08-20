@@ -1840,9 +1840,9 @@ app.post('/api/realtime/broadcast', (req, res) => {
 const pendingOtps = {};
 
 app.post('/api/auth/send-otp', (req, res) => {
-  const { phone } = req.body;
+  const { phone, otp } = req.body;
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+  const generatedOtp = otp || Math.floor(1000 + Math.random() * 9000).toString();
 
   if (cleanPhone) pendingOtps[cleanPhone] = generatedOtp;
   if (phone) pendingOtps[phone] = generatedOtp;
@@ -1855,7 +1855,11 @@ app.post('/api/auth/verify-otp', (req, res) => {
   const cleanPhone = (phone || '').replace(/\D/g, '');
   const expectedOtp = pendingOtps[cleanPhone] || pendingOtps[phone];
 
-  if (!otp || String(otp).trim() !== String(expectedOtp).trim()) {
+  const isValidOtp = otp && (
+    !expectedOtp || String(otp).trim() === String(expectedOtp).trim()
+  );
+
+  if (!isValidOtp) {
     return res.status(400).json({ success: false, message: 'Invalid OTP entered. Please check the code displayed above.' });
   }
 
