@@ -90,23 +90,7 @@ export async function authenticateOrGetCustomerProfile(name: string, phone: stri
       return { profile: phoneProfile };
     }
 
-    // Insert new customer profile into public.profiles
-    const newCust = {
-      full_name: name,
-      email: email || undefined,
-      phone: cleanPhone,
-      role: 'customer',
-      loyalty_tier: 'Bronze',
-      is_active: true
-    };
-
-    const { data: inserted } = await supabase
-      .from('profiles')
-      .insert(newCust)
-      .select()
-      .maybeSingle();
-
-    return { profile: inserted || newCust };
+    return { profile: null };
   } catch (err: any) {
     console.error('[Supabase Auth] Exception:', err);
     return { profile: null, error: err.message };
@@ -385,11 +369,10 @@ export async function redeemCouponInSupabase(redemptionData: {
   if (!isSupabaseConfigured) return { redemption: null };
 
   try {
-    const isUuid = (id?: string) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const row = {
-      coupon_id: isUuid(redemptionData.couponId) ? redemptionData.couponId : null,
-      user_id: isUuid(redemptionData.userId) ? redemptionData.userId : null,
-      brand_id: isUuid(redemptionData.brandId) ? redemptionData.brandId : null,
+      coupon_id: redemptionData.couponId || null,
+      user_id: redemptionData.userId || null,
+      brand_id: redemptionData.brandId || null,
       savings_amount: redemptionData.savingsAmount,
       channel: 'WiFi Captive Portal'
     };

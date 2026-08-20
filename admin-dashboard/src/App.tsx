@@ -476,15 +476,7 @@ export default function App() {
       const res = await fetch(`${BACKEND_URL}/api/auth/connected-users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
-        setUsersList(prev => {
-          const supaMap = new Map(data.users.map((u: any) => [
-            (u.phone || "").replace(/\D/g, "").slice(-10), u
-          ]));
-          const localOnly = prev.filter(u =>
-            !supaMap.has((u.phone || "").replace(/\D/g, "").slice(-10))
-          );
-          return [...localOnly, ...data.users];
-        });
+        setUsersList(data.users);
       }
     } catch (e) {}
   };
@@ -527,7 +519,7 @@ export default function App() {
 
   useEffect(() => {
     fetchBackendConnectedUsers();
-    const interval = setInterval(fetchBackendConnectedUsers, 3000);
+    const interval = setInterval(fetchBackendConnectedUsers, 1500);
     return () => clearInterval(interval);
   }, []);
 
@@ -772,7 +764,8 @@ export default function App() {
           store={selectedStore}
           onClose={() => setSelectedStore(null)}
           onSave={(updated) => {
-            setStoresList(prev => prev.map(s => s.id === updated.id ? updated : s));
+            const idx = MOCK_STORES.findIndex(s => s.id === updated.id);
+            if (idx !== -1) MOCK_STORES[idx] = updated;
           }}
         />
       )}

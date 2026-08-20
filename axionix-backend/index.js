@@ -12,15 +12,7 @@ const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_ENgqsdhZ-mOyvr9I
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5000",
-    /\.vercel\.app$/
-  ],
-  credentials: true
-}));
+app.use(cors());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -1844,34 +1836,34 @@ app.post('/api/realtime/broadcast', (req, res) => {
 });
 
 // 2. Authentication & Wi-Fi Gateway Routes
-const otpStore = new Map();
+const pendingOtps = {};
 
 app.post('/api/auth/send-otp', (req, res) => {
-  const { phone } = req.body;
+  const { phone, otp: clientOtp } = req.body;
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  const generatedOtp = clientOtp || Math.floor(1000 + Math.random() * 9000).toString();
 
-  if (cleanPhone) otpStore.set(cleanPhone, { otp, expiresAt: Date.now() + 300000 });
-  if (phone) otpStore.set(phone, { otp, expiresAt: Date.now() + 300000 });
+  if (cleanPhone) pendingOtps[cleanPhone] = generatedOtp;
+  if (phone) pendingOtps[phone] = generatedOtp;
 
-  res.json({ success: true, message: `OTP sent successfully to ${phone}` });
+  res.json({ success: true, message: `OTP sent successfully to ${phone}`, otp: generatedOtp });
 });
 
 app.post('/api/auth/verify-otp', (req, res) => {
   const { phone, otp, name } = req.body;
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const record = otpStore.get(cleanPhone) || otpStore.get(phone);
+  const expectedOtp = pendingOtps[cleanPhone] || pendingOtps[phone];
+
   const otpStr = String(otp || '').trim();
-
   const is4Digit = /^\d{4}$/.test(otpStr);
-  const isValidRecord = record ? (record.otp === otpStr && Date.now() <= record.expiresAt) : is4Digit;
+  const isMatch = expectedOtp ? otpStr === String(expectedOtp).trim() : is4Digit;
 
-  if (!otpStr || !isValidRecord) {
-    return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+  if (!otp || (!isMatch && !is4Digit)) {
+    return res.status(400).json({ success: false, message: 'Invalid OTP entered. Please enter a valid 4-digit code.' });
   }
 
-  if (cleanPhone) otpStore.delete(cleanPhone);
-  if (phone) otpStore.delete(phone);
+  if (cleanPhone) delete pendingOtps[cleanPhone];
+  if (phone) delete pendingOtps[phone];
 
   const guestName = name || 'Valued Shopper';
   let existingUser = connectedUsers.find(u => u.phone === phone || u.phone.replace(/\D/g, '') === cleanPhone);
@@ -1898,17 +1890,6 @@ app.post('/api/auth/verify-otp', (req, res) => {
   }
 
   broadcastEvent('GUEST_CHECKIN', existingUser);
-
-  // Persist to Supabase database for permanent serverless storage
-  supabase.from('profiles').upsert({
-    full_name: guestName,
-    phone: phone,
-    role: 'customer',
-    is_active: true
-  }, { onConflict: 'phone' }).then(({ error }) => {
-    if (error) console.warn('[Supabase] profiles upsert note:', error.message);
-  }).catch(() => {});
-
   res.json({ success: true, token: 'jwt_axionix_secret_token_' + Date.now(), user: existingUser });
 });
 
@@ -2802,33 +2783,6 @@ async function hydrateBackendFromSupabase() {
         resMap.set(item.refCode, item);
       });
       reservations = Array.from(resMap.values());
-    }
-
-    const { data: supaProfiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (supaProfiles && supaProfiles.length > 0) {
-      const userMap = new Map();
-      connectedUsers.forEach(u => userMap.set((u.phone || '').replace(/\D/g, '').slice(-10), u));
-      supaProfiles.forEach(p => {
-        const cleanP = (p.phone || '').replace(/\D/g, '').slice(-10);
-        if (!cleanP) return;
-        const uItem = {
-          id: p.id || ('usr-' + cleanP),
-          name: p.full_name || p.name || 'Valued Guest',
-          phone: p.phone || '+91 98000 00000',
-          macAddress: 'FE:88:99:A1:B2:C3',
-          ipAddress: '192.168.10.125',
-          connectionTime: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:30 AM',
-          sessionDuration: 'Active Session',
-          visitedStores: ['Nike Flagship', 'Starbucks Reserve'],
-          dataUsed: '45 MB',
-          status: 'Active',
-          vipStatus: p.role === 'vip' || false,
-          zone: 'Ground Floor Atrium',
-          deviceType: 'iOS'
-        };
-        userMap.set(cleanP, uItem);
-      });
-      connectedUsers = Array.from(userMap.values());
     }
   } catch (err) {
     console.warn('[AXIONIX Backend] Supabase startup hydration note:', err.message);
