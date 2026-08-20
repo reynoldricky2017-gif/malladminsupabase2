@@ -477,17 +477,13 @@ export default function App() {
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
         setUsersList(prev => {
-          const userMap = new Map<string, ConnectedUser>();
-          prev.forEach(u => {
-            const key = (u.phone || u.id || u.name || '').replace(/\D/g, '').slice(-10) || u.name;
-            userMap.set(key, u);
-          });
-          data.users.forEach((u: any) => {
-            const key = (u.phone || u.id || u.name || '').replace(/\D/g, '').slice(-10) || u.name;
-            const existing = userMap.get(key);
-            userMap.set(key, existing ? { ...existing, ...u } : u);
-          });
-          return Array.from(userMap.values());
+          const supaMap = new Map(data.users.map((u: any) => [
+            (u.phone || "").replace(/\D/g, "").slice(-10), u
+          ]));
+          const localOnly = prev.filter(u =>
+            !supaMap.has((u.phone || "").replace(/\D/g, "").slice(-10))
+          );
+          return [...localOnly, ...data.users];
         });
       }
     } catch (e) {}
@@ -530,10 +526,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!currentUser) return;
+    if (BACKEND_URL.includes("vercel.app")) return;
     fetchBackendConnectedUsers();
-    const interval = setInterval(fetchBackendConnectedUsers, 1500);
+    const interval = setInterval(fetchBackendConnectedUsers, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentUser]);
 
   // Real-time Multi-Channel Listener (SSE + BroadcastChannel + LocalStorage Event Bus)
   useEffect(() => {
@@ -776,8 +774,7 @@ export default function App() {
           store={selectedStore}
           onClose={() => setSelectedStore(null)}
           onSave={(updated) => {
-            const idx = MOCK_STORES.findIndex(s => s.id === updated.id);
-            if (idx !== -1) MOCK_STORES[idx] = updated;
+            setStoresList(prev => prev.map(s => s.id === updated.id ? updated : s));
           }}
         />
       )}

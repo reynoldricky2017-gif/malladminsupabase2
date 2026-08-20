@@ -12,7 +12,15 @@ const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_ENgqsdhZ-mOyvr9I
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5000",
+    /\.vercel\.app$/
+  ],
+  credentials: true
+}));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -1836,34 +1844,34 @@ app.post('/api/realtime/broadcast', (req, res) => {
 });
 
 // 2. Authentication & Wi-Fi Gateway Routes
-const pendingOtps = {};
+const otpStore = new Map();
 
 app.post('/api/auth/send-otp', (req, res) => {
-  const { phone, otp: clientOtp } = req.body;
+  const { phone } = req.body;
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const generatedOtp = clientOtp || Math.floor(1000 + Math.random() * 9000).toString();
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
-  if (cleanPhone) pendingOtps[cleanPhone] = generatedOtp;
-  if (phone) pendingOtps[phone] = generatedOtp;
+  if (cleanPhone) otpStore.set(cleanPhone, { otp, expiresAt: Date.now() + 300000 });
+  if (phone) otpStore.set(phone, { otp, expiresAt: Date.now() + 300000 });
 
-  res.json({ success: true, message: `OTP sent successfully to ${phone}`, otp: generatedOtp });
+  res.json({ success: true, message: `OTP sent successfully to ${phone}` });
 });
 
 app.post('/api/auth/verify-otp', (req, res) => {
   const { phone, otp, name } = req.body;
   const cleanPhone = (phone || '').replace(/\D/g, '');
-  const expectedOtp = pendingOtps[cleanPhone] || pendingOtps[phone];
-
+  const record = otpStore.get(cleanPhone) || otpStore.get(phone);
   const otpStr = String(otp || '').trim();
-  const is4Digit = /^\d{4}$/.test(otpStr);
-  const isMatch = expectedOtp ? otpStr === String(expectedOtp).trim() : is4Digit;
 
-  if (!otp || (!isMatch && !is4Digit)) {
-    return res.status(400).json({ success: false, message: 'Invalid OTP entered. Please enter a valid 4-digit code.' });
+  const is4Digit = /^\d{4}$/.test(otpStr);
+  const isValidRecord = record ? (record.otp === otpStr && Date.now() <= record.expiresAt) : is4Digit;
+
+  if (!otpStr || !isValidRecord) {
+    return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
   }
 
-  if (cleanPhone) delete pendingOtps[cleanPhone];
-  if (phone) delete pendingOtps[phone];
+  if (cleanPhone) otpStore.delete(cleanPhone);
+  if (phone) otpStore.delete(phone);
 
   const guestName = name || 'Valued Shopper';
   let existingUser = connectedUsers.find(u => u.phone === phone || u.phone.replace(/\D/g, '') === cleanPhone);
