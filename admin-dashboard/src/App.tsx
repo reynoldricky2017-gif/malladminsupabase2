@@ -80,7 +80,7 @@ export default function App() {
       const saved = localStorage.getItem('axionix_users_list');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return MOCK_USERS;
+    return [];
   });
 
   const [ordersList, setOrdersList] = useState<Order[]>(() => {
@@ -88,7 +88,7 @@ export default function App() {
       const saved = localStorage.getItem('axionix_orders_list');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return MOCK_ORDERS;
+    return [];
   });
 
   const [reservationsList, setReservationsList] = useState<Reservation[]>(() => {

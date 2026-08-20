@@ -12,11 +12,11 @@ interface ConnectedUsersViewProps {
   users?: ConnectedUser[];
 }
 
-export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelectUserJourney, users = MOCK_USERS }) => {
+export const ConnectedUsersView: React.FC<ConnectedUsersViewProps> = ({ onSelectUserJourney, users = [] }) => {
   const [search, setSearch] = useState('');
   const [deviceFilter, setDeviceFilter] = useState('All');
   const [vipOnly, setVipOnly] = useState(false);
-  const [liveUsersList, setLiveUsersList] = useState<ConnectedUser[]>(() => mergeAndSortUsers(MOCK_USERS, users));
+  const [liveUsersList, setLiveUsersList] = useState<ConnectedUser[]>(() => mergeAndSortUsers([], users));
 
   const fetchLiveConnectedUsers = async () => {
     let incoming: ConnectedUser[] = [];

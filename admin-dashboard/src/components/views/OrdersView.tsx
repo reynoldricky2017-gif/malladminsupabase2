@@ -11,11 +11,11 @@ interface OrdersViewProps {
   ordersList?: Order[];
 }
 
-export const OrdersView: React.FC<OrdersViewProps> = ({ ordersList = MOCK_ORDERS }) => {
+export const OrdersView: React.FC<OrdersViewProps> = ({ ordersList = [] }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [liveOrdersList, setLiveOrdersList] = useState<Order[]>(() => mergeAndSortOrders(MOCK_ORDERS, ordersList));
+  const [liveOrdersList, setLiveOrdersList] = useState<Order[]>(() => mergeAndSortOrders([], ordersList));
 
   const fetchLiveOrders = async () => {
     let incoming: Order[] = [];

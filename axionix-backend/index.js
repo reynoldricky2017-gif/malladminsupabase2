@@ -816,24 +816,9 @@ let brands = [
 
 
 
-let connectedUsers = [
-  { id: 'usr-1', name: 'jhg', phone: '9673456877', macAddress: 'FE:88:99:A1:B2:C3', ipAddress: '192.168.10.142', connectionTime: '07:06 pm', sessionDuration: 'Just connected', visitedStores: [], dataUsed: '15 MB', status: 'Active', vipStatus: true, zone: 'Ground Floor Atrium', deviceType: 'iOS', created_at: '2026-08-20T19:06:00.000Z' },
-  { id: 'usr-2', name: 'jggh', phone: '9234567868', macAddress: 'FE:88:99:A1:B2:C3', ipAddress: '192.168.10.142', connectionTime: '07:02 pm', sessionDuration: 'Just connected', visitedStores: [], dataUsed: '15 MB', status: 'Disconnected', vipStatus: true, zone: 'Ground Floor Atrium', deviceType: 'iOS', created_at: '2026-08-20T19:02:00.000Z' },
-  { id: 'usr-3', name: 'aastha', phone: '8495093177', macAddress: 'FE:88:99:A1:B2:C3', ipAddress: '192.168.10.142', connectionTime: '06:57 pm', sessionDuration: 'Just connected', visitedStores: [], dataUsed: '15 MB', status: 'Disconnected', vipStatus: true, zone: 'Ground Floor Atrium', deviceType: 'iOS', created_at: '2026-08-20T18:57:00.000Z' },
-  { id: 'usr-4', name: 'jh', phone: '9876543256', macAddress: 'FE:88:99:A1:B2:C3', ipAddress: '192.168.10.142', connectionTime: '06:56 pm', sessionDuration: 'Just connected', visitedStores: [], dataUsed: '15 MB', status: 'Disconnected', vipStatus: true, zone: 'Ground Floor Atrium', deviceType: 'iOS', created_at: '2026-08-20T18:56:00.000Z' },
-  { id: 'usr-5', name: 'mani', phone: '9987654324', macAddress: 'FE:88:99:A1:B2:C3', ipAddress: '192.168.10.142', connectionTime: '06:46 pm', sessionDuration: 'Just connected', visitedStores: [], dataUsed: '15 MB', status: 'Disconnected', vipStatus: true, zone: 'Ground Floor Atrium', deviceType: 'iOS', created_at: '2026-08-20T18:46:00.000Z' },
-  { id: 'usr-6', name: 'yoshi', phone: '+91 84950 93170', macAddress: 'A4:C3:F0:88:99:A1', ipAddress: '192.168.10.101', connectionTime: '10:15 AM', sessionDuration: '42 mins', visitedStores: ['Nike Flagship', 'Starbucks Reserve'], dataUsed: '340 MB', status: 'Disconnected', vipStatus: true, zone: '1st Floor (Fashion)', deviceType: 'iOS', created_at: '2026-08-20T10:15:00.000Z' },
-  { id: 'usr-7', name: 'Aastha Sharma', phone: '+91 98123 98765', macAddress: 'B2:E4:11:22:33:44', ipAddress: '192.168.10.102', connectionTime: '10:28 AM', sessionDuration: '29 mins', visitedStores: ['Nike Flagship', 'Zara Flagship'], dataUsed: '210 MB', status: 'Disconnected', vipStatus: false, zone: 'North Wing', deviceType: 'Android', created_at: '2026-08-20T10:28:00.000Z' },
-  { id: 'usr-8', name: 'Reynold Ricky', phone: '+91 98987 65432', macAddress: 'C6:F8:44:55:66:77', ipAddress: '192.168.10.103', connectionTime: '10:45 AM', sessionDuration: '12 mins', visitedStores: ['Apple Experience Store'], dataUsed: '145 MB', status: 'Disconnected', vipStatus: true, zone: 'East Wing', deviceType: 'macOS', created_at: '2026-08-20T10:45:00.000Z' }
-];
+let connectedUsers = [];
 
-let orders = [
-  { id: 'ord-1095', orderNumber: '#AX-1095', customerName: 'malappa', customerPhone: '9865435678', storeName: 'Zara Flagship', storeCategory: 'Fashion', itemsCount: 1, itemsList: ['Linen Blend Blazer (x1)'], totalAmount: 6291, orderType: 'Store Pickup', paymentMethod: 'UPI / GPay', timestamp: '06:43 pm', status: 'Completed', created_at: '2026-08-20T18:43:00.000Z' },
-  { id: 'ord-1094', orderNumber: '#AX-1094', customerName: 'rad', customerPhone: '9017647398', storeName: 'Nike Flagship', storeCategory: 'Fashion', itemsCount: 1, itemsList: ['Air Jordan 1 Retro High OG (x1)'], totalAmount: 16995, orderType: 'Store Pickup', paymentMethod: 'UPI / GPay', timestamp: '02:07 pm', status: 'Completed', created_at: '2026-08-20T14:07:00.000Z' },
-  { id: 'ord-1093', orderNumber: '#AX-1093', customerName: 'rad', customerPhone: '9017647398', storeName: 'Nike Flagship', storeCategory: 'Fashion', itemsCount: 1, itemsList: ['Nike Tech Fleece Joggers (x1)'], totalAmount: 14446, orderType: 'Store Pickup', paymentMethod: 'Mall Pay (Unified Wallet)', timestamp: '01:59 pm', status: 'Completed', created_at: '2026-08-20T13:59:00.000Z' },
-  { id: 'ord-1089', orderNumber: '#AX-1089', customerName: 'yoshi', customerPhone: '+91 84950 93170', storeName: 'Rolex Boutique', storeCategory: 'Luxury', itemsCount: 1, itemsList: ['Submariner Date Oystersteel Watch (x1)'], totalAmount: 1450000, orderType: 'Store Pickup', paymentMethod: 'UPI / GPay', timestamp: '10:42 AM', status: 'Completed', created_at: '2026-08-20T10:42:00.000Z' },
-  { id: 'ord-1090', orderNumber: '#AX-1090', customerName: 'Aastha Sharma', customerPhone: '+91 98123 98765', storeName: 'Nike Flagship', storeCategory: 'Fashion', itemsCount: 1, itemsList: ['Air Jordan 1 Retro High OG (x1)'], totalAmount: 16995, orderType: 'Click & Collect', paymentMethod: 'Credit Card', timestamp: '10:48 AM', status: 'Completed', created_at: '2026-08-20T10:48:00.000Z' }
-];
+let orders = [];
 
 let reservations = [
   { id: 'RES-301', refCode: 'RES-8821', guestName: 'yoshi', guestPhone: '+91 84950 93170', storeName: 'Starbucks Reserve', partySize: 2, timeSlot: '17:00 PM', date: '2026-08-14', status: 'Confirmed', specialNotes: 'VIP Corner Seating' },
