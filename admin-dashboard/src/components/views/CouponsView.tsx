@@ -662,7 +662,7 @@ export const CouponsView: React.FC<CouponsViewProps> = ({ couponsList }) => {
         for (const o of localOrders) {
           if (o.appliedCoupon) {
             allRedemptions.push({
-              id: `local-cpn-${o.orderNumber || Math.random()}`,
+              id: `local-cpn-${o.orderNumber || o.id || 'order-cpn'}`,
               couponCode: o.appliedCoupon,
               customerName: o.customerName || 'Valued Guest',
               customerPhone: o.customerPhone || '+91 84950 93170',

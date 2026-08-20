@@ -2009,6 +2009,19 @@ app.post('/api/orders', (req, res) => {
 
   orders.unshift(newOrder);
 
+  // Persist to Supabase database for permanent serverless storage
+  supabase.from('orders').insert({
+    order_number: newOrder.orderNumber,
+    customer_name: newOrder.customerName,
+    customer_phone: newOrder.customerPhone,
+    store_name: newOrder.storeName,
+    total_amount: newOrder.totalAmount,
+    status: newOrder.status,
+    payment_method: newOrder.paymentMethod
+  }).then(({ error }) => {
+    if (error) console.warn('[Supabase] orders insert note:', error.message);
+  }).catch(() => {});
+
   if (appliedCoupon) {
     const couponRedemption = {
       id: 'rdm-' + Date.now(),
@@ -2468,6 +2481,20 @@ app.post('/api/reservations', (req, res) => {
 
   reservations.unshift(newRes);
 
+  // Persist to Supabase database for permanent serverless storage
+  supabase.from('reservations').insert({
+    id: newRes.id,
+    ref_code: newRes.refCode,
+    guest_name: newRes.guestName,
+    guest_phone: newRes.guestPhone,
+    party_size: newRes.partySize,
+    time_slot: newRes.timeSlot,
+    status: newRes.status,
+    notes: newRes.specialNotes
+  }).then(({ error }) => {
+    if (error) console.warn('[Supabase] reservations insert note:', error.message);
+  }).catch(() => {});
+
   const brand = brands.find(b => b.name === storeName);
   if (brand) {
     brand.reservationsCount += 1;
@@ -2704,39 +2731,49 @@ async function hydrateBackendFromSupabase() {
 
     const { data: supaOrders } = await supabase.from('orders').select('*, order_items(*, products(*))').order('created_at', { ascending: false });
     if (supaOrders && supaOrders.length > 0) {
-      const mappedOrders = supaOrders.map(o => ({
-        id: o.id,
-        orderNumber: o.order_number || `#AX-${o.id.slice(0, 4).toUpperCase()}`,
-        customerName: o.customer_name || 'Mall Guest',
-        customerPhone: o.customer_phone || '+91 98000 00000',
-        storeName: o.store_name || 'Mall Store',
-        storeCategory: 'Fashion',
-        itemsCount: o.order_items?.length || 1,
-        itemsList: o.order_items?.map(i => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
-        totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
-        orderType: o.order_type || 'Store Pickup',
-        paymentMethod: o.payment_method || 'Credit Card',
-        timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
-        status: o.status || 'Completed'
-      }));
-      orders.unshift(...mappedOrders);
+      const orderMap = new Map();
+      orders.forEach(o => orderMap.set(o.orderNumber || o.id, o));
+      supaOrders.forEach(o => {
+        const item = {
+          id: o.id,
+          orderNumber: o.order_number || `#AX-${o.id.slice(0, 4).toUpperCase()}`,
+          customerName: o.customer_name || 'Mall Guest',
+          customerPhone: o.customer_phone || '+91 98000 00000',
+          storeName: o.store_name || 'Mall Store',
+          storeCategory: 'Fashion',
+          itemsCount: o.order_items?.length || 1,
+          itemsList: o.order_items?.map(i => `${i.products?.name || 'Item'} (x${i.quantity || 1})`) || ['Store Purchase'],
+          totalAmount: Number(o.total_amount) || Number(o.subtotal) || 0,
+          orderType: o.order_type || 'Store Pickup',
+          paymentMethod: o.payment_method || 'Credit Card',
+          timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          status: o.status || 'Completed'
+        };
+        orderMap.set(item.orderNumber, item);
+      });
+      orders = Array.from(orderMap.values());
     }
 
     const { data: supaRes } = await supabase.from('reservations').select('*').order('created_at', { ascending: false });
     if (supaRes && supaRes.length > 0) {
-      const mappedRes = supaRes.map(r => ({
-        id: r.id,
-        refCode: r.ref_code || `RES-${r.id.slice(0, 4).toUpperCase()}`,
-        guestName: r.guest_name || 'Guest User',
-        guestPhone: r.guest_phone || '+91 98000 00000',
-        storeName: 'Mall Store',
-        partySize: Number(r.party_size) || 2,
-        timeSlot: r.time_slot || '17:00 PM',
-        date: r.created_at ? r.created_at.split('T')[0] : 'Today',
-        status: r.status || 'Confirmed',
-        specialNotes: r.notes || 'VIP Fitting Suite'
-      }));
-      reservations.unshift(...mappedRes);
+      const resMap = new Map();
+      reservations.forEach(r => resMap.set(r.refCode || r.id, r));
+      supaRes.forEach(r => {
+        const item = {
+          id: r.id,
+          refCode: r.ref_code || `RES-${r.id.slice(0, 4).toUpperCase()}`,
+          guestName: r.guest_name || 'Guest User',
+          guestPhone: r.guest_phone || '+91 98000 00000',
+          storeName: 'Mall Store',
+          partySize: Number(r.party_size) || 2,
+          timeSlot: r.time_slot || '17:00 PM',
+          date: r.created_at ? r.created_at.split('T')[0] : 'Today',
+          status: r.status || 'Confirmed',
+          specialNotes: r.notes || 'VIP Fitting Suite'
+        };
+        resMap.set(item.refCode, item);
+      });
+      reservations = Array.from(resMap.values());
     }
   } catch (err) {
     console.warn('[AXIONIX Backend] Supabase startup hydration note:', err.message);

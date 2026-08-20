@@ -159,7 +159,7 @@ export const TenantDashboardView: React.FC = () => {
       const storeName = r.storeName || r.venue || r.store_name || 'Starbucks Reserve';
       const guestName = r.guestName || r.user_name || r.guest_name || 'Valued Guest';
       const guestPhone = r.guestPhone || r.user_phone || r.guest_phone || '+91 84950 93170';
-      const refCode = r.refCode || r.ref_code || (`RES-${storeName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 899)}`);
+      const refCode = r.refCode || r.ref_code || (`RES-${storeName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase()}-${String(r.id || guestPhone).slice(-4)}`);
       const partySize = Number(r.partySize || r.guest_count || r.party_size || 2);
       const timeSlot = r.timeSlot || r.preferred_time || r.reservation_time || '17:00 PM';
       const date = r.date || (r.created_at ? r.created_at.split('T')[0] : 'Today');

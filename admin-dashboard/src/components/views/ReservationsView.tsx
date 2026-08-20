@@ -252,7 +252,7 @@ export const ReservationsView: React.FC<ReservationsViewProps> = ({ reservations
         seenSemanticKeys.add(semanticKey);
 
         formatted.push({
-          id: String(r.id || `res-${Date.now()}-${Math.random()}`),
+          id: String(r.id || refCode || `res-${semanticKey}`),
           refCode,
           guestName,
           guestPhone,

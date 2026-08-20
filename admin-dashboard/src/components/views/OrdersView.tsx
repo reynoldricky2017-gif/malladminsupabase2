@@ -50,12 +50,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ ordersList = MOCK_ORDERS
     // Deduplicate and parse order objects
     const orderMap = new Map<string, Order>();
 
-    for (const o of rawOrders) {
-      const orderIdKey = String(o.id || o.orderNumber || o.order_number || '');
-      const orderNum = o.orderNumber || o.order_number || `#AX-${orderIdKey.replace(/\D/g, '').slice(-4) || Math.floor(1000 + Math.random() * 9000)}`;
+    rawOrders.forEach((o, idx) => {
+      const orderIdKey = String(o.id || o.orderNumber || o.order_number || idx);
+      const cleanDigits = orderIdKey.replace(/\D/g, '');
+      const orderNum = o.orderNumber || o.order_number || `#AX-${cleanDigits.slice(-4) || String(1000 + idx)}`;
 
       const dedupeKey = orderNum.trim();
-      if (orderMap.has(dedupeKey)) continue;
+      if (orderMap.has(dedupeKey)) return;
 
       const custName = String(o.customerName || o.user_name || 'Valued Guest').trim();
       const custPhone = o.customerPhone || o.user_phone || '+91 84950 93170';
@@ -103,7 +104,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ ordersList = MOCK_ORDERS
         itemsList: itemsList,
         items: rawItems
       });
-    }
+    });
 
     const parseOrderTimeRank = (ord: Order): number => {
       const ts = String(ord.timestamp || '').toLowerCase();
