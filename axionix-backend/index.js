@@ -865,6 +865,16 @@ function broadcastEvent(type, data) {
   sseClients.forEach(client => client.res.write(payload));
 }
 
+// Express middleware for live Supabase hydration on Vercel requests
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    try {
+      await hydrateBackendFromSupabase();
+    } catch (e) {}
+  }
+  next();
+});
+
 // 0. Root Endpoint — Live Mall Digital Twin Overview (White/Light Theme & Interactive Modals)
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -1923,16 +1933,6 @@ app.post('/api/auth/visit-store', (req, res) => {
 
   broadcastEvent('STORE_VISIT', { user, storeName, visitorsToday: brand ? brand.visitorsToday : 0 });
   res.json({ success: true, visitorsToday: brand ? brand.visitorsToday : 0 });
-});
-
-// Express middleware for live Supabase hydration on Vercel requests
-app.use(async (req, res, next) => {
-  if (process.env.VERCEL) {
-    try {
-      await hydrateBackendFromSupabase();
-    } catch (e) {}
-  }
-  next();
 });
 
 // 3. Brands & Store Directory Routes
