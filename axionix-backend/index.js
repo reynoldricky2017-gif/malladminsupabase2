@@ -15,16 +15,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(cors());
 app.use(express.json());
 
-// Express middleware for live Supabase hydration on Vercel requests
-app.use(async (req, res, next) => {
-  if (process.env.VERCEL) {
-    try {
-      await hydrateBackendFromSupabase();
-    } catch (e) {}
-  }
-  next();
-});
-
 // In-Memory Database Store initialized with all 33 Customer Portal Flagship Stores
 let brands = [
   // FOOD & DINING (6 STORES)
@@ -1933,6 +1923,14 @@ app.post('/api/auth/visit-store', (req, res) => {
 
   broadcastEvent('STORE_VISIT', { user, storeName, visitorsToday: brand ? brand.visitorsToday : 0 });
   res.json({ success: true, visitorsToday: brand ? brand.visitorsToday : 0 });
+// Express middleware for live Supabase hydration on Vercel requests
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    try {
+      await hydrateBackendFromSupabase();
+    } catch (e) {}
+  }
+  next();
 });
 
 // 3. Brands & Store Directory Routes
