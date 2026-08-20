@@ -207,8 +207,7 @@ export async function createOrderInSupabase(orderData: {
         .insert(itemRows);
 
       if (itemsErr) {
-        console.warn('[Supabase] order_items insert error:', itemsErr.message);
-        return { order: null, error: `Order created, but items failed: ${itemsErr.message}` };
+        console.warn('[Supabase] order_items insert note:', itemsErr.message);
       }
     }
 

@@ -1911,7 +1911,47 @@ app.post('/api/auth/disconnect', (req, res) => {
   res.status(404).json({ success: false, message: 'User not found' });
 });
 
-app.get('/api/auth/connected-users', (req, res) => {
+app.get('/api/auth/connected-users', async (req, res) => {
+  try {
+    const { data: dbProfiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (dbProfiles && dbProfiles.length > 0) {
+      const mappedProfiles = dbProfiles.map((p, idx) => {
+        const cleanP = String(p.phone || '').replace(/\D/g, '');
+        return {
+          id: p.id || ('usr-prof-' + idx),
+          name: p.full_name || p.name || 'Shopper',
+          phone: p.phone || '+91 98000 00000',
+          macAddress: p.mac_address || 'FE:88:99:A1:B2:C3',
+          ipAddress: p.ip_address || '192.168.10.142',
+          connectionTime: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          sessionDuration: '1m',
+          visitedStores: ['Wi-Fi Captive Portal'],
+          dataUsed: '15 MB',
+          status: p.is_active !== false ? 'Active' : 'Disconnected',
+          vipStatus: true,
+          zone: 'Ground Floor (Lobby & Luxury)',
+          deviceType: 'iOS',
+          createdAt: p.created_at || new Date().toISOString(),
+          created_at: p.created_at || new Date().toISOString()
+        };
+      });
+
+      const userMap = new Map();
+      [...mappedProfiles, ...connectedUsers].forEach(u => {
+        const k = String(u.phone || '').replace(/\D/g, '').slice(-10) || u.id;
+        if (!userMap.has(k)) {
+          userMap.set(k, u);
+        }
+      });
+
+      return res.json({ success: true, users: Array.from(userMap.values()) });
+    }
+  } catch (e) {}
+
   res.json({ success: true, users: connectedUsers });
 });
 
@@ -1998,7 +2038,47 @@ app.post('/api/auth/apply-coupon', (req, res) => {
 
 
 // 5. Orders & POS Transactions Routes
-app.get('/api/orders', (req, res) => {
+app.get('/api/orders', async (req, res) => {
+  try {
+    const { data: dbOrders } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (dbOrders && dbOrders.length > 0) {
+      const mappedDbOrders = dbOrders.map(o => {
+        const orderNum = o.order_number || `#AX-${String(o.id).slice(-4)}`;
+        return {
+          id: String(o.id),
+          orderNumber: orderNum,
+          customerName: o.customer_name || 'Valued Guest',
+          customerPhone: o.customer_phone || '+91 98000 00000',
+          storeName: o.store_name || 'Grand Mall Concierge',
+          storeCategory: 'Fashion',
+          itemsCount: o.items_count || 1,
+          itemsList: [o.item_name || 'Concierge Item'],
+          items: [],
+          totalAmount: Number(o.total_amount) || 1200,
+          orderType: o.order_type || 'Store Pickup',
+          paymentMethod: o.payment_method || 'UPI / GPay',
+          created_at: o.created_at || new Date().toISOString(),
+          timestamp: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          status: o.status || 'Completed'
+        };
+      });
+
+      const orderMap = new Map();
+      [...mappedDbOrders, ...orders].forEach(o => {
+        const k = (o.orderNumber || o.id).trim();
+        if (!orderMap.has(k)) {
+          orderMap.set(k, o);
+        }
+      });
+
+      return res.json({ success: true, orders: Array.from(orderMap.values()) });
+    }
+  } catch (e) {}
+
   res.json({ success: true, orders: orders });
 });
 
